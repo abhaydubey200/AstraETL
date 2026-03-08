@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      alert_rules: {
+        Row: {
+          config: Json
+          created_at: string
+          created_by: string | null
+          description: string | null
+          enabled: boolean
+          id: string
+          name: string
+          pipeline_id: string | null
+          rule_type: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          name: string
+          pipeline_id?: string | null
+          rule_type?: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          name?: string
+          pipeline_id?: string | null
+          rule_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_rules_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       connections: {
         Row: {
           created_at: string
@@ -90,6 +137,67 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "execution_logs_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          alert_rule_id: string | null
+          created_at: string
+          id: string
+          message: string
+          pipeline_id: string | null
+          read: boolean
+          run_id: string | null
+          severity: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          alert_rule_id?: string | null
+          created_at?: string
+          id?: string
+          message: string
+          pipeline_id?: string | null
+          read?: boolean
+          run_id?: string | null
+          severity?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          alert_rule_id?: string | null
+          created_at?: string
+          id?: string
+          message?: string
+          pipeline_id?: string | null
+          read?: boolean
+          run_id?: string | null
+          severity?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_alert_rule_id_fkey"
+            columns: ["alert_rule_id"]
+            isOneToOne: false
+            referencedRelation: "alert_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_run_id_fkey"
             columns: ["run_id"]
             isOneToOne: false
             referencedRelation: "pipeline_runs"
