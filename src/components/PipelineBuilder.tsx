@@ -25,9 +25,13 @@ interface PipelineBuilderProps {
 const PipelineBuilder = ({ onBack, pipelineId, initialName, initialNodes, initialEdges }: PipelineBuilderProps) => {
   const isMobile = useIsMobile();
   const [pipelineName, setPipelineName] = useState(initialName || "Untitled Pipeline");
+  const { user } = useAuth();
   const createPipeline = useCreatePipeline();
   const updatePipeline = useUpdatePipeline();
+  const triggerRun = useTriggerRun();
+  const validatePipeline = useValidatePipeline();
   const saving = createPipeline.isPending || updatePipeline.isPending;
+  const [validationStatus, setValidationStatus] = useState<"idle" | "valid" | "invalid">("idle");
 
   const {
     nodes, edges, selectedNode, zoom, pan,
