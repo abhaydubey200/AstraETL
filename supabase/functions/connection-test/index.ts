@@ -231,7 +231,7 @@ async function testSnowflake(params: { host: string; port: number; database_name
     const accountUrl = params.host.includes(".") ? `https://${params.host}` : `https://${params.host}.snowflakecomputing.com`;
     const resp = await fetch(`${accountUrl}/api/v2/login-request`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
       body: JSON.stringify({
         data: {
           ACCOUNT_NAME: params.host.split(".")[0],
@@ -240,11 +240,17 @@ async function testSnowflake(params: { host: string; port: number; database_name
         },
       }),
     });
-    const data = await resp.json();
+    const text = await resp.text();
+    let data: Record<string, unknown>;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return { success: false, latency_ms: 0, error: `Snowflake returned non-JSON response (HTTP ${resp.status}): ${text.slice(0, 200)}` };
+    }
     if (data.success) {
       return { success: true, latency_ms: 0, server_version: "Snowflake" };
     }
-    return { success: false, latency_ms: 0, error: data.message || "Snowflake auth failed" };
+    return { success: false, latency_ms: 0, error: (data.message as string) || `Snowflake auth failed (HTTP ${resp.status})` };
   } catch (e) {
     return { success: false, latency_ms: 0, error: `Snowflake connection failed — ${(e as Error).message}` };
   }
