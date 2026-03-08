@@ -188,10 +188,16 @@ const Connections = () => {
                   <input type="password" value={formData.password} onChange={(e) => setFormData((p) => ({ ...p, password: e.target.value }))} className="w-full mt-1 px-3 py-2 rounded-md border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
                 </div>
               </div>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={formData.ssl_enabled} onChange={(e) => setFormData((p) => ({ ...p, ssl_enabled: e.target.checked }))} className="rounded border-border" />
-                <span className="text-xs text-muted-foreground">Enable SSL/TLS</span>
-              </label>
+              <div className="grid grid-cols-2 gap-3 items-end">
+                <label className="flex items-center gap-2 cursor-pointer pt-5">
+                  <input type="checkbox" checked={formData.ssl_enabled} onChange={(e) => setFormData((p) => ({ ...p, ssl_enabled: e.target.checked }))} className="rounded border-border" />
+                  <span className="text-xs text-muted-foreground">Enable SSL/TLS</span>
+                </label>
+                <div>
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Timeout (seconds)</label>
+                  <input type="number" min={5} max={300} value={formData.timeout_seconds} onChange={(e) => setFormData((p) => ({ ...p, timeout_seconds: Math.max(5, Math.min(300, parseInt(e.target.value) || 30)) }))} className="w-full mt-1 px-3 py-2 rounded-md border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
+                </div>
+              </div>
               {testResult && (
                 <div className={cn("flex items-center gap-2 p-3 rounded-md border", testResult.success ? "border-success/30 bg-success/5" : "border-destructive/30 bg-destructive/5")}>
                   {testResult.success ? <CheckCircle className="w-4 h-4 text-success" /> : <XCircle className="w-4 h-4 text-destructive" />}
