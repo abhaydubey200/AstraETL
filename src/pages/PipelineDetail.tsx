@@ -116,8 +116,24 @@ const PipelineDetail = () => {
   };
 
   const handleUpdateSchedule = () => {
+    // Compute next_run_at based on schedule type
+    let nextRun: string | null = null;
+    const now = new Date();
+    if (scheduleType === "hourly") {
+      nextRun = new Date(now.getTime() + 60 * 60 * 1000).toISOString();
+    } else if (scheduleType === "daily") {
+      nextRun = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+    } else if (scheduleType === "cron") {
+      nextRun = new Date(now.getTime() + 60 * 60 * 1000).toISOString();
+    }
+
     updatePipeline.mutate(
-      { id: pipeline.id, schedule_type: scheduleType, schedule_config: { cron_expression: cronExpr } },
+      {
+        id: pipeline.id,
+        schedule_type: scheduleType,
+        schedule_config: { ...((pipeline.schedule_config as Record<string, unknown>) ?? {}), cron_expression: cronExpr },
+        ...(nextRun ? { next_run_at: nextRun } : {}),
+      } as any,
       {
         onSuccess: () => toast({ title: "Schedule updated" }),
         onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
