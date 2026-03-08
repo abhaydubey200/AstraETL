@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import StatusBadge from "@/components/StatusBadge";
 import { cn } from "@/lib/utils";
 import { Plus, Search, GitBranch, MoreHorizontal, Play, Copy, Trash2, Eye, Edit, Loader2 } from "lucide-react";
+import PipelinesSkeleton from "@/components/PipelinesSkeleton";
 import { usePipelines, useDeletePipeline } from "@/hooks/use-pipelines";
 import { useTriggerRun } from "@/hooks/use-executions";
 import { toast } from "@/hooks/use-toast";
@@ -103,9 +104,7 @@ const Pipelines = () => {
       </div>
 
       {isLoading ? (
-        <div className="rounded-lg border border-border bg-card p-16 flex items-center justify-center">
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-        </div>
+        <PipelinesSkeleton />
       ) : filtered.length === 0 ? (
         <div className="rounded-lg border border-border bg-card p-16 flex flex-col items-center text-center">
           <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
