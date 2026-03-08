@@ -64,6 +64,7 @@ Deno.serve(async (req) => {
     }
 
     const body: ConnTestRequest = await req.json();
+    const timeoutMs = Math.max(5000, Math.min(300000, (body.timeout_seconds || 30) * 1000));
     let connParams: { type: string; host: string; port: number; database_name: string; username: string; password: string; ssl_enabled: boolean };
 
     if (body.connection_id) {
