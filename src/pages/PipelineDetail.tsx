@@ -30,8 +30,8 @@ const PipelineDetail = () => {
   const { toast } = useToast();
 
   const { data: pipelineData, isLoading: loadingPipeline } = usePipeline(id);
-  const pipeline = pipelineData?.pipeline;
-  const nodes = pipelineData?.nodes ?? [];
+  const pipeline = pipelineData;
+  const nodes = pipelineData?.pipeline_nodes ?? [];
 
   const { data: runs = [], isLoading: loadingRuns } = usePipelineRuns({ pipelineId: id });
   const updatePipeline = useUpdatePipeline();
