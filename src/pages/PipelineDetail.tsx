@@ -129,9 +129,7 @@ const PipelineDetail = () => {
     updatePipeline.mutate(
       {
         id: pipeline.id,
-        updates: {
-          schedule_config: { ...existing, retry_max: retryMax, retry_interval: retryInterval, timeout: timeout_, notify_on_fail: notifyFail, notify_on_success: notifySuccess },
-        },
+        schedule_config: { ...existing, retry_max: retryMax, retry_interval: retryInterval, timeout: timeout_, notify_on_fail: notifyFail, notify_on_success: notifySuccess },
       },
       {
         onSuccess: () => toast({ title: "Settings saved" }),
