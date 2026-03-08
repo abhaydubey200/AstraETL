@@ -18,6 +18,7 @@ import Governance from "@/pages/Governance";
 import SettingsPage from "@/pages/SettingsPage";
 import AuthPage from "@/pages/AuthPage";
 import ResetPassword from "@/pages/ResetPassword";
+import AlertsPage from "@/pages/AlertsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -48,6 +49,7 @@ const App = () => (
                       <Route path="/monitoring" element={<Monitoring />} />
                       <Route path="/catalog" element={<Catalog />} />
                       <Route path="/governance" element={<Governance />} />
+                      <Route path="/alerts" element={<AlertsPage />} />
                       <Route path="/settings" element={<SettingsPage />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
