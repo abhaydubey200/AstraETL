@@ -111,7 +111,7 @@ const PipelineDetail = () => {
   })();
 
   const handleRunNow = () => {
-    triggerRun.mutate({ pipelineId: pipeline.id }, {
+    triggerRun.mutate({ pipelineId: pipeline.id, userId: user?.id }, {
       onSuccess: () => toast({ title: "Pipeline execution started", description: "Watch the logs update in real time." }),
       onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
     });
