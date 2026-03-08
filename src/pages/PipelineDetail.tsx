@@ -298,7 +298,7 @@ const PipelineDetail = () => {
               <label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Schedule Type</label>
               <div className="flex gap-2 mt-2">
                 {["manual", "hourly", "daily", "cron"].map((t) => (
-                  <button key={t} onClick={() => setScheduleType(t)} className={cn("px-3 py-1.5 rounded-md border text-xs font-medium transition-colors capitalize", scheduleType === t ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground")}>
+                  <button key={t} onClick={() => setScheduleType(t as ScheduleType)} className={cn("px-3 py-1.5 rounded-md border text-xs font-medium transition-colors capitalize", scheduleType === t ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground")}>
                     {t}
                   </button>
                 ))}
