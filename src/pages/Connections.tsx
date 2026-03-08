@@ -78,6 +78,7 @@ const Connections = () => {
         username: formData.username,
         password: formData.password,
         ssl_enabled: formData.ssl_enabled,
+        timeout_seconds: formData.timeout_seconds,
         ...(editingId ? { connection_id: editingId } : {}),
       });
       setTestResult(result);
