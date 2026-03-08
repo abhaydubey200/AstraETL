@@ -66,13 +66,33 @@ const Connections = () => {
     setTestResult(null);
   };
 
-  const handleTestConnection = () => {
-    setTesting(true);
+  const handleTestConnection = async () => {
     setTestResult(null);
-    setTimeout(() => {
-      setTesting(false);
-      setTestResult(formData.host ? "success" : "failed");
-    }, 2000);
+    try {
+      const result = await testConnection.mutateAsync({
+        type: formData.type,
+        host: formData.host,
+        port: formData.port,
+        database_name: formData.database_name,
+        username: formData.username,
+        password: formData.password,
+        ssl_enabled: formData.ssl_enabled,
+        ...(editingId ? { connection_id: editingId } : {}),
+      });
+      setTestResult(result);
+    } catch (err: any) {
+      setTestResult({ success: false, latency_ms: 0, error: err.message });
+    }
+  };
+
+  const handleDiscoverSchema = async (connId: string) => {
+    try {
+      const result = await schemaDiscovery.mutateAsync({ connection_id: connId, password: formData.password || "" });
+      setSchemaData(result.tables);
+      setShowSchema(true);
+    } catch (err: any) {
+      toast({ title: "Schema discovery failed", description: err.message, variant: "destructive" });
+    }
   };
 
   const handleSave = async () => {
