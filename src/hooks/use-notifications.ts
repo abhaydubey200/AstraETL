@@ -172,3 +172,17 @@ export function useDeleteAlertRule() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ALERT_RULES_KEY }),
   });
 }
+
+export function useUpdateAlertRule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: { id: string; notify_email?: string | null }) => {
+      const { error } = await supabase
+        .from("alert_rules")
+        .update(updates)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ALERT_RULES_KEY }),
+  });
+}
