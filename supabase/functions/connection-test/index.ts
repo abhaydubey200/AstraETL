@@ -229,7 +229,7 @@ async function testSnowflake(params: { host: string; port: number; database_name
   // Snowflake uses HTTPS REST API — test connectivity via fetch
   try {
     const accountUrl = params.host.includes(".") ? `https://${params.host}` : `https://${params.host}.snowflakecomputing.com`;
-    const resp = await fetch(`${accountUrl}/api/v2/login-request`, {
+    const resp = await fetch(`${accountUrl}/session/v1/login-request`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
       body: JSON.stringify({
