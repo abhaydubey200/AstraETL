@@ -116,7 +116,7 @@ const PipelineDetail = () => {
 
   const handleUpdateSchedule = () => {
     updatePipeline.mutate(
-      { id: pipeline.id, updates: { schedule_type: scheduleType, schedule_config: { cron_expression: cronExpr } } },
+      { id: pipeline.id, schedule_type: scheduleType, schedule_config: { cron_expression: cronExpr } },
       {
         onSuccess: () => toast({ title: "Schedule updated" }),
         onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
