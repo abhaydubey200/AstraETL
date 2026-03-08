@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useAuth } from "@/components/AuthProvider";
 import { usePipeline, useUpdatePipeline, useDeletePipeline } from "@/hooks/use-pipelines";
 import type { ScheduleType } from "@/types/pipeline";
 import { usePipelineRuns, useExecutionLogs, useTriggerRun } from "@/hooks/use-executions";
@@ -29,6 +30,7 @@ const PipelineDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const { data: pipelineData, isLoading: loadingPipeline } = usePipeline(id);
   const pipeline = pipelineData;
@@ -109,7 +111,7 @@ const PipelineDetail = () => {
   })();
 
   const handleRunNow = () => {
-    triggerRun.mutate({ pipelineId: pipeline.id }, {
+    triggerRun.mutate({ pipelineId: pipeline.id, userId: user?.id }, {
       onSuccess: () => toast({ title: "Pipeline execution started", description: "Watch the logs update in real time." }),
       onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
     });

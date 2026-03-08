@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { ArrowLeft, Play, Save, Loader2 } from "lucide-react";
+import { ArrowLeft, Play, Save, Loader2, CheckCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCreatePipeline, useUpdatePipeline } from "@/hooks/use-pipelines";
+import { useTriggerRun } from "@/hooks/use-executions";
+import { useValidatePipeline } from "@/hooks/use-connections";
+import { useAuth } from "@/components/AuthProvider";
 import { toast } from "@/hooks/use-toast";
 import { BuilderNode, BuilderEdge } from "./pipeline-builder/types";
 import { useCanvasState } from "./pipeline-builder/useCanvasState";
@@ -22,9 +25,13 @@ interface PipelineBuilderProps {
 const PipelineBuilder = ({ onBack, pipelineId, initialName, initialNodes, initialEdges }: PipelineBuilderProps) => {
   const isMobile = useIsMobile();
   const [pipelineName, setPipelineName] = useState(initialName || "Untitled Pipeline");
+  const { user } = useAuth();
   const createPipeline = useCreatePipeline();
   const updatePipeline = useUpdatePipeline();
+  const triggerRun = useTriggerRun();
+  const validatePipeline = useValidatePipeline();
   const saving = createPipeline.isPending || updatePipeline.isPending;
+  const [validationStatus, setValidationStatus] = useState<"idle" | "valid" | "invalid">("idle");
 
   const {
     nodes, edges, selectedNode, zoom, pan,
@@ -96,9 +103,42 @@ const PipelineBuilder = ({ onBack, pipelineId, initialName, initialNodes, initia
             {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
             Save
           </Button>
-          <Button size="sm" className="gap-1.5 h-7 text-xs bg-success text-success-foreground hover:bg-success/90">
-            <Play className="w-3 h-3" /> Run
+          <Button
+            size="sm"
+            className="gap-1.5 h-7 text-xs bg-success text-success-foreground hover:bg-success/90"
+            disabled={!pipelineId || triggerRun.isPending}
+            onClick={async () => {
+              if (!pipelineId) return;
+              // Validate first
+              try {
+                const result = await validatePipeline.mutateAsync(pipelineId);
+                if (!result.valid) {
+                  setValidationStatus("invalid");
+                  toast({
+                    title: "Validation failed",
+                    description: result.errors.map((e) => e.message).join("; "),
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                setValidationStatus("valid");
+              } catch {
+                // Proceed even if validation service fails
+              }
+              triggerRun.mutate(
+                { pipelineId, userId: user?.id },
+                {
+                  onSuccess: () => toast({ title: "Pipeline execution started", description: "Watch logs for real-time progress." }),
+                  onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+                }
+              );
+            }}
+          >
+            {triggerRun.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+            Run
           </Button>
+          {validationStatus === "valid" && <CheckCircle className="w-3.5 h-3.5 text-success" />}
+          {validationStatus === "invalid" && <AlertTriangle className="w-3.5 h-3.5 text-warning" />}
         </div>
       </div>
 

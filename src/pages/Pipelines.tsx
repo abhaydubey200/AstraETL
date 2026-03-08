@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/components/AuthProvider";
 import StatusBadge from "@/components/StatusBadge";
 import { cn } from "@/lib/utils";
 import {
@@ -45,6 +46,7 @@ const formatDate = (d: string) => {
 
 const Pipelines = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { data: pipelines = [], isLoading } = usePipelines();
   const deleteMutation = useDeletePipeline();
   const duplicateMutation = useDuplicatePipeline();
@@ -118,7 +120,7 @@ const Pipelines = () => {
 
   const handleRunNow = async (id: string) => {
     try {
-      await triggerRun.mutateAsync({ pipelineId: id });
+      await triggerRun.mutateAsync({ pipelineId: id, userId: user?.id });
       toast({ title: "Pipeline execution started" });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
