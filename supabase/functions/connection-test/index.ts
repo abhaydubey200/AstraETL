@@ -114,16 +114,26 @@ Deno.serve(async (req) => {
     const startTime = Date.now();
     let result: ConnTestResult;
 
-    if (connParams.type === "postgresql") {
-      result = await testPostgres(connParams);
-    } else if (connParams.type === "mysql") {
-      result = await testMySQL(connParams);
-    } else if (connParams.type === "mssql") {
-      result = await testMSSQL(connParams);
-    } else if (connParams.type === "snowflake") {
-      result = await testSnowflake(connParams);
-    } else {
-      result = { success: false, latency_ms: 0, error: `Unsupported type: ${connParams.type}` };
+    const timeoutPromise = new Promise<ConnTestResult>((_, reject) =>
+      setTimeout(() => reject(new Error(`Connection timed out after ${timeoutMs / 1000}s`)), timeoutMs)
+    );
+
+    try {
+      let testPromise: Promise<ConnTestResult>;
+      if (connParams.type === "postgresql") {
+        testPromise = testPostgres(connParams);
+      } else if (connParams.type === "mysql") {
+        testPromise = testMySQL(connParams);
+      } else if (connParams.type === "mssql") {
+        testPromise = testMSSQL(connParams);
+      } else if (connParams.type === "snowflake") {
+        testPromise = testSnowflake(connParams);
+      } else {
+        testPromise = Promise.resolve({ success: false, latency_ms: 0, error: `Unsupported type: ${connParams.type}` });
+      }
+      result = await Promise.race([testPromise, timeoutPromise]);
+    } catch (e) {
+      result = { success: false, latency_ms: Date.now() - startTime, error: (e as Error).message };
     }
 
     result.latency_ms = Date.now() - startTime;
