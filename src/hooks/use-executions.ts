@@ -14,6 +14,12 @@ export interface RunFilters {
 export function usePipelineRuns(filters?: RunFilters) {
   return useQuery<PipelineRun[]>({
     queryKey: [...RUNS_KEY, filters],
+    refetchInterval: (query) => {
+      // Auto-refetch every 3s if any run is still "running"
+      const data = query.state.data;
+      if (data && data.some((r) => r.status === "running")) return 3000;
+      return false;
+    },
     queryFn: async () => {
       let query = supabase
         .from("pipeline_runs")
