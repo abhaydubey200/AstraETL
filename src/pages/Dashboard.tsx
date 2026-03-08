@@ -71,11 +71,7 @@ const Dashboard = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className="p-6 lg:p-8 flex items-center justify-center h-64">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   const hasPipelines = pipelines.length > 0;
