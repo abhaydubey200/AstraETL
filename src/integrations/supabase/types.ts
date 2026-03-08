@@ -62,6 +62,126 @@ export type Database = {
         }
         Relationships: []
       }
+      pipeline_edges: {
+        Row: {
+          id: string
+          pipeline_id: string
+          source_node_id: string
+          target_node_id: string
+        }
+        Insert: {
+          id?: string
+          pipeline_id: string
+          source_node_id: string
+          target_node_id: string
+        }
+        Update: {
+          id?: string
+          pipeline_id?: string
+          source_node_id?: string
+          target_node_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_edges_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipeline_edges_source_node_id_fkey"
+            columns: ["source_node_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipeline_edges_target_node_id_fkey"
+            columns: ["target_node_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pipeline_nodes: {
+        Row: {
+          config_json: Json
+          id: string
+          label: string
+          node_type: string
+          order_index: number
+          pipeline_id: string
+          position_x: number
+          position_y: number
+        }
+        Insert: {
+          config_json?: Json
+          id?: string
+          label?: string
+          node_type: string
+          order_index?: number
+          pipeline_id: string
+          position_x?: number
+          position_y?: number
+        }
+        Update: {
+          config_json?: Json
+          id?: string
+          label?: string
+          node_type?: string
+          order_index?: number
+          pipeline_id?: string
+          position_x?: number
+          position_y?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_nodes_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pipelines: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          schedule_config: Json | null
+          schedule_type: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          schedule_config?: Json | null
+          schedule_type?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          schedule_config?: Json | null
+          schedule_type?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
