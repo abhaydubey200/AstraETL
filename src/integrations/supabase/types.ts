@@ -23,6 +23,7 @@ export type Database = {
           enabled: boolean
           id: string
           name: string
+          notify_email: string | null
           pipeline_id: string | null
           rule_type: string
           updated_at: string
@@ -35,6 +36,7 @@ export type Database = {
           enabled?: boolean
           id?: string
           name: string
+          notify_email?: string | null
           pipeline_id?: string | null
           rule_type?: string
           updated_at?: string
@@ -47,6 +49,7 @@ export type Database = {
           enabled?: boolean
           id?: string
           name?: string
+          notify_email?: string | null
           pipeline_id?: string | null
           rule_type?: string
           updated_at?: string

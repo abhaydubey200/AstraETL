@@ -25,6 +25,7 @@ export interface AlertRule {
   config: Record<string, unknown>;
   enabled: boolean;
   created_by: string | null;
+  notify_email: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -165,6 +166,20 @@ export function useDeleteAlertRule() {
       const { error } = await supabase
         .from("alert_rules")
         .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ALERT_RULES_KEY }),
+  });
+}
+
+export function useUpdateAlertRule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: { id: string; notify_email?: string | null }) => {
+      const { error } = await supabase
+        .from("alert_rules")
+        .update(updates)
         .eq("id", id);
       if (error) throw error;
     },
