@@ -127,3 +127,43 @@ export function useDeletePipeline() {
     onSuccess: () => qc.invalidateQueries({ queryKey: PIPELINES_KEY }),
   });
 }
+
+export function useDuplicatePipeline() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      // Fetch original pipeline
+      const { data: original, error: pErr } = await supabase
+        .from("pipelines")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (pErr) throw pErr;
+
+      const { id: _id, created_at, updated_at, last_run_at, next_run_at, ...rest } = original as any;
+      const { data: newPipeline, error: nErr } = await supabase
+        .from("pipelines")
+        .insert({ ...rest, name: `${rest.name} (copy)`, status: "draft" })
+        .select()
+        .single();
+      if (nErr) throw nErr;
+
+      // Duplicate nodes
+      const { data: nodes } = await supabase
+        .from("pipeline_nodes")
+        .select("*")
+        .eq("pipeline_id", id);
+
+      if (nodes && nodes.length > 0) {
+        const newNodes = (nodes as any[]).map(({ id: _nid, pipeline_id, ...n }) => ({
+          ...n,
+          pipeline_id: (newPipeline as any).id,
+        }));
+        await supabase.from("pipeline_nodes").insert(newNodes);
+      }
+
+      return newPipeline as Pipeline;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: PIPELINES_KEY }),
+  });
+}
