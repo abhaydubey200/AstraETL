@@ -30,6 +30,7 @@ const PipelineDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const { data: pipelineData, isLoading: loadingPipeline } = usePipeline(id);
   const pipeline = pipelineData;
