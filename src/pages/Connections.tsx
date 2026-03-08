@@ -55,6 +55,7 @@ const Connections = () => {
       username: conn.username,
       password: "",
       ssl_enabled: conn.ssl_enabled,
+      timeout_seconds: 30,
     });
     setEditingId(conn.id);
     setTestResult(null);
