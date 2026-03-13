@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState } from "react";
+import { useRef, useCallback, useState, useEffect } from "react";
 import { BuilderNode, BuilderEdge, NODE_WIDTH, NODE_HEIGHT, GRID_SIZE } from "./types";
 import CanvasNode from "./CanvasNode";
 import CanvasEdge from "./CanvasEdge";
@@ -92,10 +92,19 @@ export default function Canvas({
     setWiring(null);
   }, []);
 
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.08 : 0.08;
-    onZoomChange(Math.max(0.3, Math.min(2, zoom + delta)));
+  // Canvas events with non-passive wheel listener for zoom
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.08 : 0.08;
+      onZoomChange(Math.max(0.3, Math.min(2, zoom + delta)));
+    };
+
+    svg.addEventListener("wheel", onWheel, { passive: false });
+    return () => svg.removeEventListener("wheel", onWheel);
   }, [zoom, onZoomChange]);
 
   // Wiring preview line
@@ -119,7 +128,6 @@ export default function Canvas({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        onWheel={handleWheel}
         style={{ cursor: panning ? "grabbing" : wiring ? "crosshair" : "default" }}
       >
         <defs>

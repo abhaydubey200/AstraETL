@@ -1,0 +1,45 @@
+Traceback (most recent call last):
+  File "C:\Users\Abhay Dubey\Desktop\AstraFlow\crystal-flow-bridge\backend\test_error_handling.py", line 139, in main
+    await test_task_retries_and_alerts()
+  File "C:\Users\Abhay Dubey\Desktop\AstraFlow\crystal-flow-bridge\backend\test_error_handling.py", line 131, in test_task_retries_and_alerts
+    assert found_critical, "Critical alert for max retries not found!"
+AssertionError: Critical alert for max retries not found!
+INFRA: asyncpg monkey-patched with MockDB for Pipelines.
+Resetting mock store...
+
+--- Testing Job Recovery (Stale Workers) ---
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Job 59df9f54-48c4-4158-9ea9-9b6828c4e0fb is now 'processing'
+Manually set job 59df9f54-48c4-4158-9ea9-9b6828c4e0fb updated_at to 2026-03-13T10:37:35.375483
+Running recover_stale_jobs...
+Mock DB: fetch -> update public.astra_worker_queue
+                set status = 'pending',
+       
+Recovered 1 stale processing jobs.
+Mock DB: execute -> insert into public.failed_jobs (job_id, pipeline_id, run_id, stage, payload, err
+Mock DB: execute -> update public.astra_worker_queue
+                set status = 'failed'
+         
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue
+                set status = 'failed'
+                where status 
+Job 59df9f54-48c4-4158-9ea9-9b6828c4e0fb status after recovery: pending (Expected: pending)
+Job 59df9f54-48c4-4158-9ea9-9b6828c4e0fb retry_count: 1 (Expected: 1)
+SUCCESS: Job recovery validated.
+
+--- Testing Task Retries and Critical Alerts ---
+Mock DB: fetchrow -> update public.task_runs
+                set status = 'running', start_time = now
+Mock DB: fetchrow -> select task_type, config_json from public.pipeline_tasks where id = $1
+Iteration 0: Claimed task 7df352be-81d4-46f7-b0d8-ffcf06a887fd, failing it...
+Task Run 7df352be-81d4-46f7-b0d8-ffcf06a887fd failed, retrying in 1m (Attempt 1/2)
+Mock DB: execute -> update public.task_runs 
+                    set status = 'queued', 
+           
+Task status: Synthetic failure 0, Retry Count: 0
+Mock DB: fetchrow -> update public.task_runs
+                set status = 'running', start_time = now
+Iteration 1: No task claimed.
+Total Alerts: 0
+TEST FAILED: Critical alert for max retries not found!

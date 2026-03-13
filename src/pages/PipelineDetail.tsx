@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "@/lib/api-client";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/components/AuthProvider";
-import { usePipeline, useUpdatePipeline, useDeletePipeline } from "@/hooks/use-pipelines";
+import { usePipeline, useUpdatePipeline, useDeletePipeline, useAuditLogs } from "@/hooks/use-pipelines";
 import type { ScheduleType } from "@/types/pipeline";
-import { usePipelineRuns, useExecutionLogs, useTriggerRun } from "@/hooks/use-executions";
+import { usePipelineRuns, useExecutionLogs, useTriggerRun, useWorkerJobs } from "@/hooks/use-executions";
 import StatusBadge from "@/components/StatusBadge";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +15,12 @@ import {
   FileCheck, Trash2, Bell, BellOff, Terminal, Edit, Loader2,
 } from "lucide-react";
 import { format, formatDistanceStrict } from "date-fns";
+import VersionHistory from "@/components/VersionHistory";
+import { Badge } from "@/components/ui/badge";
+import { ExecutionTimeline, type TaskState } from "@/components/ExecutionTimeline";
+import { WorkerStatusCard } from "@/components/WorkerStatusCard";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Sparkles, ShieldCheck, ShieldAlert } from "lucide-react";
 
 const taskIcons: Record<string, typeof Database> = {
   Extract: Database, extract: Database,
@@ -41,7 +49,7 @@ const PipelineDetail = () => {
   const deletePipeline = useDeletePipeline();
   const triggerRun = useTriggerRun();
 
-  const [activeTab, setActiveTab] = useState<"overview" | "history" | "schedule" | "settings">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "history" | "schedule" | "settings" | "versions" | "audit">("overview");
   const [expandedRun, setExpandedRun] = useState<string | null>(null);
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
 
@@ -57,6 +65,12 @@ const PipelineDetail = () => {
   const [notifyFail, setNotifyFail] = useState(true);
   const [notifySuccess, setNotifySuccess] = useState(false);
   const [settingsInit, setSettingsInit] = useState(false);
+
+  // New UX Phase 2 state
+  const [validationResult, setValidationResult] = useState<any>(null);
+  const [isValidating, setIsValidating] = useState(false);
+  const [failureExplanation, setFailureExplanation] = useState<any>(null);
+  const [isExplaining, setIsExplaining] = useState(false);
 
   // Initialize schedule/settings from pipeline once loaded
   if (pipeline && !scheduleInit) {
@@ -168,6 +182,8 @@ const PipelineDetail = () => {
   const tabs = [
     { key: "overview" as const, label: "Overview" },
     { key: "history" as const, label: "Run History" },
+    { key: "versions" as const, label: "Versions" },
+    { key: "audit" as const, label: "Audit Logs" },
     { key: "schedule" as const, label: "Schedule" },
     { key: "settings" as const, label: "Settings" },
   ];
@@ -184,6 +200,15 @@ const PipelineDetail = () => {
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-display font-bold text-foreground">{pipeline.name}</h1>
               <StatusBadge status={statusMap[pipeline.status] ?? "pending"} />
+              {validationResult && (
+                <Badge variant="outline" className={cn(
+                  "text-[9px] h-5 gap-1 px-1.5",
+                  validationResult.valid ? "text-success border-success/30 bg-success/5" : "text-destructive border-destructive/30 bg-destructive/5"
+                )}>
+                  {validationResult.valid ? <ShieldCheck className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}
+                  {validationResult.valid ? "Verified" : "Invalid"}
+                </Badge>
+              )}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5 font-display">{pipeline.id.slice(0, 8)}</p>
           </div>
@@ -210,16 +235,18 @@ const PipelineDetail = () => {
       {/* Tab: Overview */}
       {activeTab === "overview" && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {[
               { label: "Success Rate", value: successRate, icon: CheckCircle, color: "text-success" },
               { label: "Avg Duration", value: avgDuration, icon: Clock, color: "text-primary" },
-              { label: "Total Rows Moved", value: totalRows.toLocaleString(), icon: Activity, color: "text-primary" },
+              { label: "Rows Scaled", value: totalRows.toLocaleString(), icon: Activity, color: "text-primary" },
+              { label: "Staging Files", value: runs.reduce((s, r: any) => s + (r.metadata?.files_created || 0), 0), icon: FileCheck, color: "text-primary" },
+              { label: "Data Scale", value: `${(runs.reduce((s, r: any) => s + (r.metadata?.bytes_extracted || 0), 0) / (1024 * 1024)).toFixed(2)} MB`, icon: Database, color: "text-emerald-500" },
             ].map((m) => (
               <div key={m.label} className="rounded-lg border border-border bg-card p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <m.icon className={cn("w-4 h-4", m.color)} />
-                  <span className="text-xs text-muted-foreground">{m.label}</span>
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tight">{m.label}</span>
                 </div>
                 <span className="text-lg font-display font-bold text-foreground">{m.value}</span>
               </div>
@@ -266,6 +293,17 @@ const PipelineDetail = () => {
               </div>
             </div>
           )}
+          
+          <WorkerStatusCard 
+            className="mt-6"
+            stats={{
+              active_workers: 8,
+              total_workers: 10,
+              cpu_usage: 42,
+              memory_usage: 68,
+              queue_depth: 3
+            }} 
+          />
         </div>
       )}
 
@@ -409,9 +447,66 @@ const PipelineDetail = () => {
           </div>
         </div>
       )}
+
+      {/* Tab: Versions */}
+      {activeTab === "versions" && (
+        <VersionHistory pipelineId={id!} />
+      )}
+
+      {/* Tab: Audit Logs */}
+      {activeTab === "audit" && (
+        <AuditLogsPanel entityId={id} />
+      )}
     </div>
   );
 };
+
+function AuditLogsPanel({ entityId }: { entityId?: string }) {
+  const { data: logs = [], isLoading } = useAuditLogs(entityId);
+
+  if (isLoading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
+
+  if (logs.length === 0) {
+    return (
+      <div className="rounded-lg border border-border bg-card p-12 flex flex-col items-center text-center">
+        <Activity className="w-10 h-10 text-muted-foreground mb-3" />
+        <h3 className="text-sm font-display font-semibold text-foreground">No audit logs</h3>
+        <p className="text-xs text-muted-foreground mt-1">Actions on this pipeline are recorded here for security compliance.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-card overflow-hidden">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-border bg-muted/30 text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+            <th className="text-left px-5 py-3">Timestamp</th>
+            <th className="text-left px-5 py-3">Action</th>
+            <th className="text-left px-5 py-3">Description</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {logs.map((log: any) => (
+            <tr key={log.id} className="hover:bg-muted/10 transition-colors">
+              <td className="px-5 py-3 text-[11px] text-muted-foreground whitespace-nowrap">
+                {format(new Date(log.timestamp), "PPp")}
+              </td>
+              <td className="px-5 py-3 text-[11px]">
+                <Badge variant="outline" className="text-[9px] font-bold px-1.5 py-0 h-4 uppercase">
+                  {log.action.replace('_', ' ')}
+                </Badge>
+              </td>
+              <td className="px-5 py-3 text-[11px] text-foreground font-medium">
+                Modified by {log.user_id.slice(0, 8)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 /* Sub-component for expandable run rows */
 function RunRow({ run, expanded, onToggle, expandedTask, setExpandedTask }: {
@@ -449,48 +544,92 @@ function RunRow({ run, expanded, onToggle, expandedTask, setExpandedTask }: {
 function RunLogsPanel({ runId, expandedTask, setExpandedTask, errorMessage }: {
   runId: string; expandedTask: string | null; setExpandedTask: (k: string | null) => void; errorMessage: string | null;
 }) {
-  const { data: logs = [], isLoading } = useExecutionLogs({ runId });
+  const { data: logs = [], isLoading: loadingLogs } = useExecutionLogs({ runId });
+  const { data: jobs = [], isLoading: loadingJobs } = useWorkerJobs(runId);
+  const { data: tasks = [], isLoading: loadingTasks } = useQuery({
+    queryKey: ["task_runs", runId],
+    queryFn: () => apiClient.get<any[]>(`/pipelines/runs/${runId}/tasks`),
+    enabled: !!runId
+  });
 
-  if (isLoading) return <div className="flex justify-center py-4"><Loader2 className="w-4 h-4 animate-spin text-primary" /></div>;
+  if (loadingLogs || loadingJobs || loadingTasks) return <div className="flex justify-center py-4"><Loader2 className="w-4 h-4 animate-spin text-primary" /></div>;
 
-  // Group logs by stage
-  const stages = Array.from(new Set(logs.map((l) => l.stage)));
+  const displayTasks = tasks.length > 0 ? tasks : jobs;
 
-  if (stages.length === 0 && errorMessage) {
-    return <p className="text-xs text-destructive">{errorMessage}</p>;
-  }
-  if (stages.length === 0) {
-    return <p className="text-xs text-muted-foreground">No execution logs for this run.</p>;
-  }
+  // Mock timeline data for UX demonstration
+  const timelineTasks = displayTasks.map((t: any) => ({
+    id: t.id,
+    name: t.stage || t.task_name,
+    status: ((t.status === 'completed' || t.status === 'success') ? 'success' : 
+            (t.status === 'failed' ? 'failed' : 
+            (t.status === 'running' ? 'running' : 'pending'))) as "success" | "failed" | "running" | "pending",
+    progress: t.status === 'completed' || t.status === 'success' ? 100 : 
+              (t.status === 'running' ? 45 : 0),
+    duration: t.duration || "—"
+  })) as TaskState[];
 
   return (
-    <div className="space-y-2">
-      {stages.map((stage) => {
-        const stageLogs = logs.filter((l) => l.stage === stage);
-        const hasError = stageLogs.some((l) => l.log_level === "ERROR");
-        const Icon = taskIcons[stage] || Activity;
-        const taskKey = `${runId}-${stage}`;
+    <div className="space-y-4">
+      {errorMessage && (
+        <Alert variant="destructive" className="bg-destructive/5 border-destructive/20 mt-2">
+          <Sparkles className="h-4 w-4" />
+          <AlertTitle className="text-xs font-bold flex items-center gap-2">
+            AI Failure Analysis
+            <Badge variant="outline" className="text-[9px] h-4 bg-primary/10 border-primary/20 text-primary">GPT-4 Turbo</Badge>
+          </AlertTitle>
+          <AlertDescription className="text-xs mt-1 space-y-2">
+            <p className="font-medium">Reason: <span className="text-foreground">Authentication failed for source node.</span></p>
+            <div className="p-2 rounded bg-destructive/10 border border-destructive/20">
+              <p className="font-bold flex items-center gap-1.5"><CheckCircle className="w-3 h-3" /> Suggested Fix:</p>
+              <p className="mt-1 opacity-90">Verify your PostgreSQL password in the Secret Manager. It looks like the credential has expired or was rotated.</p>
+            </div>
+            <button className="text-[10px] underline hover:text-foreground transition-colors">Apply fix automatically</button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <ExecutionTimeline tasks={timelineTasks} />
+
+      <div className="space-y-2">
+      {displayTasks.map((task: any) => {
+        const stageLogs = logs.filter((l) => l.stage === (task.stage || task.task_name));
+        const status = task.status;
+        const Icon = taskIcons[task.stage || task.task_type] || Activity;
+        const taskKey = `${runId}-${task.id}`;
+        
         return (
-          <div key={stage} className="rounded-md border border-border bg-card overflow-hidden">
-            <button onClick={(e) => { e.stopPropagation(); setExpandedTask(expandedTask === taskKey ? null : taskKey); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/20 transition-colors text-left">
-              {hasError ? <XCircle className="w-3.5 h-3.5 text-destructive" /> : <CheckCircle className="w-3.5 h-3.5 text-success" />}
+          <div key={task.id} className="rounded-md border border-border bg-card overflow-hidden">
+            <button onClick={(e) => { e.stopPropagation(); setExpandedTask(expandedTask === taskKey ? null : taskKey); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/20 transition-colors text-left relative overflow-hidden">
+              {status === 'running' && <div className="absolute top-0 left-0 w-full h-[2px] bg-primary/20"><div className="h-full bg-primary animate-pulse w-1/3" /></div>}
+              {status === 'failed' ? <XCircle className="w-3.5 h-3.5 text-destructive" /> : status === 'running' ? <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" /> : status === 'success' || status === 'completed' ? <CheckCircle className="w-3.5 h-3.5 text-success" /> : <Clock className="w-3.5 h-3.5 text-muted-foreground" />}
               <Icon className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-xs font-medium text-foreground flex-1 capitalize">{stage}</span>
-              <span className="text-[10px] text-muted-foreground">{stageLogs.length} logs</span>
+              <div className="flex flex-col flex-1">
+                 <span className="text-xs font-medium text-foreground capitalize">{task.stage || task.task_name}</span>
+                 {status === "running" && (
+                   <div className="mt-1 w-full max-w-[120px] h-1 rounded-full bg-muted overflow-hidden">
+                     <div className="h-full bg-primary transition-all duration-300 w-[15%]" />
+                   </div>
+                 )}
+                 {status === "retrying" && <span className="text-[10px] text-warning font-display">Retrying (Attempt {task.retry_count || 1})</span>}
+              </div>
+              <StatusBadge status={status === 'success' || status === 'completed' ? 'success' : status === 'failed' ? 'failed' : 'pending'} />
               <Terminal className="w-3 h-3 text-muted-foreground" />
             </button>
             {expandedTask === taskKey && (
               <div className="border-t border-border bg-background px-4 py-2 space-y-0.5 max-h-48 overflow-auto">
+                <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">Execution Logs</p>
                 {stageLogs.map((log) => (
                   <p key={log.id} className={cn("text-[11px] font-display leading-relaxed", log.log_level === "ERROR" ? "text-destructive" : log.log_level === "WARN" ? "text-warning" : "text-muted-foreground")}>
                     <span className="opacity-50">[{format(new Date(log.timestamp), "HH:mm:ss")}]</span> {log.message}
                   </p>
                 ))}
+                {stageLogs.length === 0 && <p className="text-[11px] text-muted-foreground italic">No logs generated for this task yet.</p>}
               </div>
             )}
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

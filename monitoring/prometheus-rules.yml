@@ -1,0 +1,30 @@
+# Prometheus Monitoring Rules for AstraFlow
+groups:
+- name: astraflow_rules
+  rules:
+  - alert: HighWorkerCPULoad
+    expr: sum(rate(container_cpu_usage_seconds_total{container="astra-worker"}[5m])) / count(container_cpu_usage_seconds_total{container="astra-worker"}) > 0.8
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High CPU usage on AstraFlow workers"
+      description: "Worker cluster CPU utilization is above 80% for 5 minutes."
+
+  - alert: PipelineSuccessRateFalling
+    expr: sum(rate(astraflow_pipeline_runs_total{status="success"}[30m])) / sum(rate(astraflow_pipeline_runs_total[30m])) < 0.95
+    for: 10m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Pipeline success rate dropped below 95%"
+      description: "Global pipeline success rate is {{ $value }} over the last 30 minutes."
+
+  - alert: InfrastructureConnectivityError
+    expr: astraflow_database_connection_status == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "AstraFlow cannot connect to Metadata Database"
+      description: "Critical database connectivity failure detected."

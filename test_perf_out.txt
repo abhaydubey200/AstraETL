@@ -1,0 +1,223 @@
+INFRA: asyncpg monkey-patched with MockDB for Pipelines.
+Error creating storage bucket: Could not connect to the endpoint URL: "http://localhost:9000/astraflow-staging"
+Preparing 50 mock jobs in queue...
+Mock DB: execute -> delete from public.astra_worker_queue
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Starting Stress Test with 10 workers...
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Mock DB: execute -> update public.astra_worker_queue set status = $1, error_text = $2, updated_at = 
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue set status = $1, error_text = $2, updated_at = now() where id = $3
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+
+--- Performance Results ---
+Total Jobs: 50
+Total Processed: 50
+Total Duration: 2.42s
+Throughput: 20.67 jobs/sec
+SUCCESS: Atomic claiming verified (no double claims).
+SUCCESS: All jobs processed.

@@ -1,0 +1,61 @@
+Traceback (most recent call last):
+  File "C:\Users\Abhay Dubey\Desktop\AstraFlow\crystal-flow-bridge\backend\test_error_handling.py", line 139, in main
+    await test_task_retries_and_alerts()
+  File "C:\Users\Abhay Dubey\Desktop\AstraFlow\crystal-flow-bridge\backend\test_error_handling.py", line 131, in test_task_retries_and_alerts
+    assert found_critical, "Critical alert for max retries not found!"
+AssertionError: Critical alert for max retries not found!
+INFRA: asyncpg monkey-patched with MockDB for Pipelines.
+Resetting mock store...
+
+--- Testing Job Recovery (Stale Workers) ---
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Job f5d3fbee-6dbc-4adf-a972-b7ed68556356 is now 'processing'
+Manually set job f5d3fbee-6dbc-4adf-a972-b7ed68556356 updated_at to 2026-03-13T10:39:52.279826
+Running recover_stale_jobs...
+Mock DB: fetch -> update public.astra_worker_queue
+                set status = 'pending',
+       
+Recovered 1 stale processing jobs.
+Mock DB: execute -> insert into public.failed_jobs (job_id, pipeline_id, run_id, stage, payload, err
+Mock DB: execute -> update public.astra_worker_queue
+                set status = 'failed'
+         
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue
+                set status = 'failed'
+                where status 
+Job f5d3fbee-6dbc-4adf-a972-b7ed68556356 status after recovery: pending (Expected: pending)
+Job f5d3fbee-6dbc-4adf-a972-b7ed68556356 retry_count: 1 (Expected: 1)
+SUCCESS: Job recovery validated.
+
+--- Testing Task Retries and Critical Alerts ---
+Mock DB: fetchrow -> update public.task_runs
+                set status = 'running', start_time = now
+Mock DB: fetchrow -> select task_type, config_json from public.pipeline_tasks where id = $1
+Iteration 0: Claimed task 432fc11f-f56e-4ec0-bd49-7179bdb52648, failing it...
+Task Run 432fc11f-f56e-4ec0-bd49-7179bdb52648 failed, retrying in 1m (Attempt 1/2)
+Mock DB: execute -> update public.task_runs 
+                    set status = 'queued', 
+           
+Task status: queued, Retry Count: 1
+Mock DB: fetchrow -> update public.task_runs
+                set status = 'running', start_time = now
+Mock DB: fetchrow -> select task_type, config_json from public.pipeline_tasks where id = $1
+Iteration 1: Claimed task 432fc11f-f56e-4ec0-bd49-7179bdb52648, failing it...
+Task Run 432fc11f-f56e-4ec0-bd49-7179bdb52648 failed, retrying in 2m (Attempt 2/2)
+Mock DB: execute -> update public.task_runs 
+                    set status = 'queued', 
+           
+Task status: queued, Retry Count: 2
+Mock DB: fetchrow -> update public.task_runs
+                set status = 'running', start_time = now
+Mock DB: fetchrow -> select task_type, config_json from public.pipeline_tasks where id = $1
+Iteration 2: Claimed task 432fc11f-f56e-4ec0-bd49-7179bdb52648, failing it...
+Task Run 432fc11f-f56e-4ec0-bd49-7179bdb52648 failed after 2 retries. Moving to DLQ.
+Mock DB: execute -> update public.task_runs set status = $1, error_message = $2, end_time = now(), u
+Mock DB: execute -> insert into public.astra_alerts (alert_type, pipeline_id, message, severity)
+   
+ALERT [CRITICAL]: Task failure after 2 retries: Synthetic failure 2
+Task status: running, Retry Count: 2
+Total Alerts: 1
+TEST FAILED: Critical alert for max retries not found!

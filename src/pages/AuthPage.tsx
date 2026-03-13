@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/components/AuthProvider";
@@ -17,17 +17,18 @@ const AuthPage = () => {
   const [message, setMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (user && !loading) {
+      navigate("/", { replace: true }, []);
+    }
+  }, [user, loading, navigate]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-6 h-6 animate-spin text-primary" />
       </div>
     );
-  }
-
-  if (user) {
-    navigate("/", { replace: true });
-    return null;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

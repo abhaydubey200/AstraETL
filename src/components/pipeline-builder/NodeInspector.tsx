@@ -1,8 +1,12 @@
 import { cn } from "@/lib/utils";
 import { BuilderNode, BuilderEdge, NODE_CONFIG } from "./types";
-import { Trash2, X } from "lucide-react";
+import { Trash2, X, ChevronRight } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import SourceNodeConfig from "./SourceNodeConfig";
 import LoadNodeConfig from "./LoadNodeConfig";
+import TransformNodeConfig from "./TransformNodeConfig";
+import ValidateNodeConfig from "./ValidateNodeConfig";
+import FilterNodeConfig from "./FilterNodeConfig";
 import ColumnMappingConfig from "./ColumnMappingConfig";
 
 interface Props {
@@ -22,63 +26,99 @@ export default function NodeInspector({ node, edges, nodes, onUpdate, onDelete, 
   const inEdges = edges.filter((e) => e.to === node.id);
 
   return (
-    <div className="w-72 border-l border-border bg-card p-3 space-y-3 overflow-y-auto animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className={cn("w-6 h-6 rounded flex items-center justify-center", cfg.bg)}>
-            <Icon className={cn("w-3 h-3", cfg.color)} />
+    <div className="w-80 border-l border-border/50 bg-card/95 backdrop-blur-xl p-6 space-y-6 overflow-y-auto animate-in slide-in-from-right duration-500 shadow-2xl">
+      <div className="flex items-center justify-between pb-2">
+        <div className="flex items-center gap-3">
+          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ring-1 ring-border/20", cfg.bg)}>
+            <Icon className={cn("w-5 h-5", cfg.color)} />
           </div>
-          <span className="text-xs font-semibold text-foreground capitalize">{node.type}</span>
+          <div>
+             <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 leading-none">Node Identity</span>
+             <h3 className="text-sm font-bold text-foreground capitalize leading-tight">{node.type}</h3>
+          </div>
         </div>
-        <div className="flex gap-0.5">
-          <button onClick={() => onDelete(node.id)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
-            <Trash2 className="w-3 h-3" />
+        <div className="flex gap-2">
+          <button onClick={() => onDelete(node.id)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all">
+            <Trash2 className="w-4 h-4" />
           </button>
-          <button onClick={onClose} className="p-1 rounded hover:bg-muted text-muted-foreground transition-colors">
-            <X className="w-3 h-3" />
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-all">
+            <X className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      <div>
-        <label className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Label</label>
-        <input
-          type="text"
-          value={node.label}
-          onChange={(e) => onUpdate(node.id, { label: e.target.value })}
-          className="w-full px-2.5 py-1.5 rounded-md border border-input bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-        />
+      <div className="space-y-4">
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Display Identifier</label>
+          <input
+            type="text"
+            value={node.label}
+            onChange={(e) => onUpdate(node.id, { label: e.target.value })}
+            className="w-full h-10 px-3 py-2 rounded-xl border border-border/50 bg-muted/20 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+            placeholder="e.g. Master Sales Data"
+          />
+        </div>
+
+        {/* Source Node Configuration */}
+        {node.type === "source" && (
+          <div className="pt-4 border-t border-border/10">
+            <SourceNodeConfig node={node} onUpdate={onUpdate} />
+          </div>
+        )}
+
+        {/* Transform Node Configuration */}
+        {node.type === "transform" && (
+          <div className="pt-4 border-t border-border/10">
+            <TransformNodeConfig node={node} onUpdate={onUpdate} />
+          </div>
+        )}
+
+        {/* Validate Node Configuration */}
+        {node.type === "validate" && (
+          <div className="pt-4 border-t border-border/10">
+            <ValidateNodeConfig node={node} onUpdate={onUpdate} />
+          </div>
+        )}
+
+        {/* Filter Node Configuration */}
+        {node.type === "filter" && (
+          <div className="pt-4 border-t border-border/10">
+            <FilterNodeConfig node={node} onUpdate={onUpdate} />
+          </div>
+        )}
+
+        {/* Load Node Configuration */}
+        {node.type === "load" && (
+          <div className="space-y-6">
+            <div className="pt-4 border-t border-border/10">
+              <LoadNodeConfig node={node} onUpdate={onUpdate} />
+            </div>
+            <div className="pt-4 border-t border-border/10">
+              <ColumnMappingConfig node={node} nodes={nodes} edges={edges} onUpdate={onUpdate} />
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Source Node Configuration */}
-      {node.type === "source" && (
-        <div className="pt-2 border-t border-border">
-          <SourceNodeConfig node={node} onUpdate={onUpdate} />
-        </div>
-      )}
-
-      {/* Load Node Configuration */}
-      {node.type === "load" && (
-        <div className="pt-2 border-t border-border">
-          <LoadNodeConfig node={node} onUpdate={onUpdate} />
-          <div className="mt-3 pt-2 border-t border-border">
-            <ColumnMappingConfig node={node} nodes={nodes} edges={edges} onUpdate={onUpdate} />
-          </div>
-        </div>
-      )}
-
-      <div className="pt-2 border-t border-border">
-        <div className="flex gap-3 text-[11px] text-muted-foreground">
-          <span>{inCount} in</span>
-          <span>{outCount} out</span>
-        </div>
+      <div className="pt-6 border-t border-border/10">
+         <div className="flex items-center justify-between mb-4">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Connectivity Map</span>
+            <div className="flex gap-3 text-[10px] items-center">
+              <Badge variant="secondary" className="h-5 text-[9px] bg-muted/50 border-none">{inCount} IN</Badge>
+              <Badge variant="secondary" className="h-5 text-[9px] bg-muted/50 border-none">{outCount} OUT</Badge>
+            </div>
+         </div>
+        
         {inEdges.length > 0 && (
-          <div className="mt-1.5 space-y-0.5">
+          <div className="space-y-2">
             {inEdges.map((e) => {
               const from = nodes.find((n) => n.id === e.from);
               return from ? (
-                <div key={e.from} className="text-[10px] text-muted-foreground">
-                  ← {from.label}
+                <div key={e.from} className="flex items-center gap-2 p-2.5 rounded-xl border border-border/30 bg-muted/10">
+                  <div className="w-6 h-6 rounded-lg bg-background flex items-center justify-center border border-border/50">
+                    <ChevronRight className="w-3 h-3 text-muted-foreground" />
+                  </div>
+                  <span className="text-[11px] font-medium text-muted-foreground truncate flex-1">{from.label}</span>
                 </div>
               ) : null;
             })}

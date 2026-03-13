@@ -2,8 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type",
 };
 
 interface SchemaTable {
@@ -23,17 +22,13 @@ interface SchemaColumn {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    // Auth
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Missing Authorization header" }), { status: 401, headers: corsHeaders });
     }
 
     const supabase = createClient(
@@ -42,20 +37,9 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const token = authHeader.replace("Bearer ", "");
-    try {
-      const result = await supabase.auth.getClaims(token);
-      if (result.error || !result.data?.claims) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    } catch {
-      return new Response(JSON.stringify({ error: "Unauthorized - token expired" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Invalid session" }), { status: 401, headers: corsHeaders });
     }
 
     const { connection_id, password } = await req.json();
@@ -95,12 +79,19 @@ Deno.serve(async (req) => {
         password: password || "",
         ssl_enabled: conn.ssl_enabled,
       });
+    } else if (conn.type === "snowflake") {
+      tables = await discoverSnowflake({
+        host: conn.host,
+        username: conn.username,
+        password: password || "",
+        database_name: conn.database_name,
+      });
     } else {
       // For non-PostgreSQL, return a helpful message
       return new Response(
         JSON.stringify({
           tables: [],
-          message: `Schema discovery for ${conn.type} requires a dedicated connector proxy. PostgreSQL is fully supported.`,
+          message: `Schema discovery for ${conn.type} requires a dedicated connector proxy. PostgreSQL and Snowflake are fully supported.`,
           supported: false,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -202,5 +193,106 @@ async function discoverPostgres(params: {
   }
 
   await client.end();
+  return tables;
+}
+
+async function discoverSnowflake(params: {
+  host: string;
+  username: string;
+  password: string;
+  database_name: string;
+}): Promise<SchemaTable[]> {
+  const accountUrl = params.host.includes(".") ? `https://${params.host}` : `https://${params.host}.snowflakecomputing.com`;
+  
+  // Login to get session token
+  const loginResp = await fetch(`${accountUrl}/session/v1/login-request`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    body: JSON.stringify({
+      data: {
+        ACCOUNT_NAME: params.host.split(".")[0],
+        LOGIN_NAME: params.username,
+        PASSWORD: params.password,
+      },
+    }),
+  });
+
+  const loginData = await loginResp.json();
+  if (!loginData.success) {
+    throw new Error(loginData.message || "Snowflake authentication failed");
+  }
+
+  const token = loginData.data.token;
+  
+  // Get all tables in the database
+  const queryResp = await fetch(`${accountUrl}/queries/v1/query-request`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Snowflake Token="${token}"`,
+      "Accept": "application/json"
+    },
+    body: JSON.stringify({
+      sqlText: `SHOW TABLES IN DATABASE "${params.database_name}"`,
+    }),
+  });
+
+  const queryData = await queryResp.json();
+  if (!queryData.success) {
+     throw new Error(queryData.message || "Snowflake query failed (tables)");
+  }
+
+  const tables: SchemaTable[] = [];
+  const rows = queryData.data.rowSet;
+  const columns = queryData.data.rowType;
+
+  const nameIdx = columns.findIndex((c: any) => c.name === "name");
+  const schemaIdx = columns.findIndex((c: any) => c.name === "schema_name");
+  const rowsIdx = columns.findIndex((c: any) => c.name === "rows");
+
+  for (const row of rows) {
+    const tableName = row[nameIdx];
+    const schemaName = row[schemaIdx];
+    const rowCount = parseInt(row[rowsIdx]) || 0;
+
+    // Get columns for this table
+    const colQueryResp = await fetch(`${accountUrl}/queries/v1/query-request`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Snowflake Token="${token}"`,
+        "Accept": "application/json"
+      },
+      body: JSON.stringify({
+        sqlText: `DESCRIBE TABLE "${params.database_name}"."${schemaName}"."${tableName}"`,
+      }),
+    });
+
+    const colQueryData = await colQueryResp.json();
+    if (colQueryData.success) {
+      const colRows = colQueryData.data.rowSet;
+      const colCols = colQueryData.data.rowType;
+      
+      const colNameIdx = colCols.findIndex((c: any) => c.name === "name");
+      const colTypeIdx = colCols.findIndex((c: any) => c.name === "type");
+      const colNullIdx = colCols.findIndex((c: any) => c.name === "null?");
+      const colPkIdx = colCols.findIndex((c: any) => c.name === "primary key");
+      const colDefIdx = colCols.findIndex((c: any) => c.name === "default");
+
+      tables.push({
+        table_name: tableName,
+        schema_name: schemaName,
+        row_count_estimate: rowCount,
+        columns: colRows.map((cr: any) => ({
+          name: cr[colNameIdx],
+          data_type: cr[colTypeIdx],
+          is_nullable: cr[colNullIdx] === "Y",
+          is_primary_key: cr[colPkIdx] === "Y",
+          default_value: cr[colDefIdx],
+        })),
+      });
+    }
+  }
+
   return tables;
 }

@@ -24,22 +24,70 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up listener BEFORE getSession
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+    const isDebug = import.meta.env.VITE_ASTRA_DEBUG_MODE === "true";
+
+    const injectMockUser = () => {
+      const mockUser = {
+        id: "debug-admin-id",
+        email: "admin@astra.local",
+        app_metadata: { role: "admin" },
+        user_metadata: { full_name: "Debug Admin" },
+        created_at: new Date().toISOString()
+      } as any;
+      setUser(mockUser);
+      setSession({ user: mockUser, access_token: "mock-token", refresh_token: "mock-refresh" } as any);
+      setLoading(false);
+    };
+
+    const checkSession = async () => {
+      if (isDebug) {
+        injectMockUser();
+        return;
+      }
+
+      const timeoutPromise = new Promise<null>((_, reject) => 
+        setTimeout(() => reject(new Error("Supabase timeout")), 5000)
+      );
+
+      try {
+        const sessionResult = await Promise.race([
+          supabase.auth.getSession(),
+          timeoutPromise
+        ]) as any;
+
+        const session = sessionResult?.data?.session;
+        if (session) {
+          setSession(session);
+          setUser(session.user);
+        }
+      } catch (error) {
+        console.error("Auth session check error:", error);
+      } finally {
         setLoading(false);
       }
-    );
+    };
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    checkSession();
 
-    return () => subscription.unsubscribe();
+    // Only subscribe to auth changes if not in debug mode
+    let subscription: { unsubscribe: () => void } | null = null;
+    
+    if (!isDebug) {
+      const { data } = supabase.auth.onAuthStateChange(
+        (_event, currentSession) => {
+          if (currentSession) {
+            setSession(currentSession);
+            setUser(currentSession.user);
+          }
+          setLoading(false);
+        }
+      );
+      subscription = data.subscription;
+    }
+
+    return () => {
+      if (subscription) subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {

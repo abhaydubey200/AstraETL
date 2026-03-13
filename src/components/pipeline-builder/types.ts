@@ -8,7 +8,7 @@ export interface BuilderNode {
   label: string;
   x: number;
   y: number;
-  config: Record<string, string>;
+  config: Record<string, any>;
 }
 
 export interface BuilderEdge {

@@ -1,13 +1,12 @@
 import { useState } from "react";
 import {
-  Plus, Search, CheckCircle, XCircle, Database, Snowflake, Server,
-  X, Loader2, Zap, Trash2, Eye, ChevronRight, ArrowLeft, Shield,
-  Clock, Table2, RefreshCw,
+  Plus, Search, Database, Snowflake, Server, Loader2, RefreshCw, Activity, ShieldCheck, Globe2, Eye, Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   useConnections, useCreateConnection, useUpdateConnection,
   useDeleteConnection, useTestConnection, useSchemaDiscovery,
+  useResourceDiscovery,
 } from "@/hooks/use-connections";
 import type { TestConnectionResult, SchemaTable } from "@/hooks/use-connections";
 import type { Connection, ConnectionType, ConnectionFormData } from "@/types/connection";
@@ -15,19 +14,18 @@ import { DEFAULT_PORTS } from "@/types/connection";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-// --- DB type configs ---
+// New Components
+import ConnectionCard from "@/components/connections/ConnectionCard";
+import ConnectionWizard from "@/components/connections/ConnectionWizard";
+import ConnectionExplorer from "@/components/connections/ConnectionExplorer";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { LayoutGrid, List } from "lucide-react";
+
 const DB_TYPES: {
   type: ConnectionType;
   label: string;
@@ -65,9 +63,6 @@ const DB_TYPES: {
   },
 ];
 
-const getDbConfig = (type: string) =>
-  DB_TYPES.find((d) => d.type === type) ?? DB_TYPES[0];
-
 const emptyForm: ConnectionFormData = {
   name: "",
   type: "postgresql",
@@ -76,11 +71,10 @@ const emptyForm: ConnectionFormData = {
   database_name: "",
   username: "",
   password: "",
-  ssl_enabled: false,
+  ssl_enabled: true,
+  security_level: "standard",
   timeout_seconds: 30,
 };
-
-type Step = "type" | "details" | "test";
 
 const Connections = () => {
   const { data: connections = [], isLoading } = useConnections();
@@ -92,25 +86,20 @@ const Connections = () => {
 
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [step, setStep] = useState<Step>("type");
   const [form, setForm] = useState<ConnectionFormData>(emptyForm);
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
   const [search, setSearch] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  // Schema drawer
-  const [schemaOpen, setSchemaOpen] = useState(false);
-  const [schemaConn, setSchemaConn] = useState<Connection | null>(null);
-  const [schemaPassword, setSchemaPassword] = useState("");
-  const [schemaTables, setSchemaTables] = useState<SchemaTable[]>([]);
-  const [schemaExpanded, setSchemaExpanded] = useState<string | null>(null);
+  // Explorer state
+  const [explorerOpen, setExplorerOpen] = useState(false);
+  const [explorerConn, setExplorerConn] = useState<Connection | null>(null);
+  const [view, setView] = useState<"grid" | "table">("grid");
 
-  // --- Actions ---
   const openNew = () => {
     setForm(emptyForm);
     setEditingId(null);
     setTestResult(null);
-    setStep("type");
     setOpen(true);
   };
 
@@ -124,37 +113,28 @@ const Connections = () => {
       username: conn.username,
       password: "",
       ssl_enabled: conn.ssl_enabled,
+      security_level: conn.security_level || "standard",
       timeout_seconds: 30,
     });
     setEditingId(conn.id);
     setTestResult(null);
-    setStep("details");
     setOpen(true);
-  };
-
-  const selectType = (type: ConnectionType) => {
-    setForm((p) => ({ ...p, type, port: DEFAULT_PORTS[type] }));
-    setStep("details");
   };
 
   const handleTest = async () => {
     setTestResult(null);
     try {
       const result = await testMutation.mutateAsync({
-        type: form.type,
-        host: form.host,
-        port: form.port,
-        database_name: form.database_name,
-        username: form.username,
-        password: form.password,
-        ssl_enabled: form.ssl_enabled,
-        timeout_seconds: form.timeout_seconds,
+        ...form,
         ...(editingId ? { connection_id: editingId } : {}),
       });
       setTestResult(result);
-      if (result.success) setStep("test");
+      if (!result.success) {
+        toast({ title: "Connection failed", description: result.error, variant: "destructive" });
+      }
     } catch (err: any) {
       setTestResult({ success: false, latency_ms: 0, error: err.message });
+      toast({ title: "Error", description: err.message, variant: "destructive" });
     }
   };
 
@@ -162,14 +142,14 @@ const Connections = () => {
     try {
       if (editingId) {
         await updateMutation.mutateAsync({ id: editingId, ...form });
-        toast({ title: "Connection updated" });
+        toast({ title: "Infrastructure updated successfully" });
       } else {
         await createMutation.mutateAsync(form);
-        toast({ title: "Connection created" });
+        toast({ title: "New source bridge established" });
       }
       setOpen(false);
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: "Operation failed", description: err.message, variant: "destructive" });
     }
   };
 
@@ -177,651 +157,317 @@ const Connections = () => {
     if (!deleteId) return;
     try {
       await deleteMutation.mutateAsync(deleteId);
-      toast({ title: "Connection deleted" });
+      toast({ title: "Source bridge dismantled" });
       setDeleteId(null);
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: "Dismantle failed", description: err.message, variant: "destructive" });
     }
   };
 
-  const openSchema = (conn: Connection) => {
-    setSchemaConn(conn);
-    setSchemaPassword("");
-    setSchemaTables([]);
-    setSchemaExpanded(null);
-    setSchemaOpen(true);
+  const handleBrowseExplorer = (conn: Connection) => {
+    setExplorerConn(conn);
+    setExplorerOpen(true);
   };
 
-  const handleDiscover = async () => {
-    if (!schemaConn) return;
-    try {
-      const result = await schemaMutation.mutateAsync({
-        connection_id: schemaConn.id,
-        password: schemaPassword,
-      });
-      setSchemaTables(result.tables);
-      if (!result.supported) {
-        toast({ title: "Limited support", description: result.message });
-      }
-    } catch (err: any) {
-      toast({ title: "Discovery failed", description: err.message, variant: "destructive" });
-    }
-  };
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
 
-  const filtered = connections.filter(
-    (c) =>
+  const filtered = connections.filter((c) => {
+    const matchesSearch = 
       c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.host.toLowerCase().includes(search.toLowerCase()) ||
-      c.type.toLowerCase().includes(search.toLowerCase())
-  );
+      c.host.toLowerCase().includes(search.toLowerCase());
+    const matchesType = typeFilter === "all" || c.type === typeFilter;
+    const matchesStatus = statusFilter === "all" || c.status === statusFilter;
+    return matchesSearch && matchesType && matchesStatus;
+  });
 
-  const saving = createMutation.isPending || updateMutation.isPending;
-  const dbConfig = getDbConfig(form.type);
+  const stats = {
+    total: connections.length,
+    active: connections.filter(c => c.status === "connected").length,
+    critical: connections.filter(c => c.status === "error").length,
+    lastTest: connections
+      .filter(c => c.last_tested_at)
+      .sort((a, b) => new Date(b.last_tested_at!).getTime() - new Date(a.last_tested_at!).getTime())[0]?.last_tested_at,
+  };
 
-  const canProceedToTest =
-    form.name.trim() && form.host.trim() && form.database_name.trim() && form.username.trim();
+  const resourceDiscovery = useResourceDiscovery();
 
   return (
-    <div className="p-6 lg:p-8 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-foreground">Connections</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {connections.length} connection{connections.length !== 1 ? "s" : ""} configured
-          </p>
+    <div className="p-8 lg:p-12 space-y-12 animate-in fade-in duration-700">
+      {/* Premium Dashboard Header */}
+      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-10">
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
+              <Globe2 className="w-6 h-6 animate-pulse" />
+            </div>
+            <div>
+              <h1 className="text-4xl font-black font-display text-foreground tracking-tightest">Infrastructure</h1>
+              <p className="text-sm font-bold text-muted-foreground/60 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-success" /> Heterogeneous Node Network
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-8 pt-4">
+            <div className="flex items-center gap-4">
+              <div className="text-2xl font-black text-foreground leading-none">{stats.total}</div>
+              <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 leading-tight">Total<br/>Bridges</div>
+            </div>
+            <div className="w-px h-8 bg-border/50 hidden sm:block" />
+            <div className="flex items-center gap-4">
+              <div className="text-2xl font-black text-success leading-none">{stats.active}</div>
+              <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 leading-tight">Verified<br/>Active</div>
+            </div>
+            <div className="w-px h-8 bg-border/50 hidden sm:block" />
+            <div className="flex items-center gap-4">
+              <div className="text-2xl font-black text-destructive leading-none">{stats.critical}</div>
+              <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 leading-tight">System<br/>Failures</div>
+            </div>
+            <div className="w-px h-8 bg-border/50 hidden lg:block" />
+            <div className="hidden lg:flex items-center gap-4">
+              <div className="text-lg font-black text-foreground leading-none">
+                {stats.lastTest ? new Date(stats.lastTest).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "---"}
+              </div>
+              <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 leading-tight">Last<br/>Verification</div>
+            </div>
+          </div>
         </div>
-        <Button onClick={openNew} className="gap-2">
-          <Plus className="w-4 h-4" /> New Connection
-        </Button>
+
+        <div className="flex flex-col sm:flex-row items-center gap-4 w-full xl:w-auto">
+          <div className="relative group flex-1 sm:w-80">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
+            <Input
+              placeholder="Search across nodes..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-11 h-12 bg-card/40 border-border/40 focus:ring-primary/10 rounded-2xl font-bold placeholder:text-muted-foreground/30 shadow-sm"
+            />
+          </div>
+          
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <select 
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="h-12 px-4 rounded-2xl bg-card/40 border border-border/40 text-xs font-black uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none pr-10 relative cursor-pointer"
+              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1rem' }}
+            >
+              <option value="all">Any Type</option>
+              <option value="postgresql">Postgres</option>
+              <option value="snowflake">Snowflake</option>
+              <option value="mysql">MySQL</option>
+              <option value="mssql">SQL Server</option>
+            </select>
+
+            <select 
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="h-12 px-4 rounded-2xl bg-card/40 border border-border/40 text-xs font-black uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none pr-10 relative cursor-pointer"
+              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1rem' }}
+            >
+              <option value="all">Any Status</option>
+              <option value="connected">Live</option>
+              <option value="error">Failure</option>
+              <option value="disconnected">Offline</option>
+            </select>
+
+            <Button onClick={openNew} className="h-12 px-8 rounded-2xl gap-3 font-black text-[11px] uppercase tracking-widest shadow-2xl shadow-primary/30 ring-1 ring-primary/20">
+              <Plus className="w-5 h-5" /> Build Bridge
+            </Button>
+          </div>
+        </div>
       </div>
 
-      {/* Search */}
-      {connections.length > 0 && (
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name, host, or type…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground/40">Network Nodes</h3>
+        <div className="flex items-center gap-1 bg-card/40 p-1 rounded-xl border border-border/40">
+           <Button 
+            variant={view === "grid" ? "secondary" : "ghost"} 
+            size="sm" 
+            className="h-8 px-3 rounded-lg gap-2 text-[10px] font-black uppercase tracking-wider transition-all"
+            onClick={() => setView("grid")}
+           >
+             <LayoutGrid className="w-3.5 h-3.5" /> Grid
+           </Button>
+           <Button 
+            variant={view === "table" ? "secondary" : "ghost"} 
+            size="sm" 
+            className="h-8 px-3 rounded-lg gap-2 text-[10px] font-black uppercase tracking-wider transition-all"
+            onClick={() => setView("table")}
+           >
+             <List className="w-3.5 h-3.5" /> Table
+           </Button>
         </div>
-      )}
+      </div>
 
-      {/* Connection Cards */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => (
-            <Card key={i} className="animate-pulse">
-              <CardContent className="p-5">
-                <div className="w-10 h-10 rounded-lg bg-muted mb-4" />
-                <div className="h-4 bg-muted rounded w-2/3 mb-2" />
-                <div className="h-3 bg-muted rounded w-1/2" />
-              </CardContent>
-            </Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="h-72 rounded-[32px] bg-card/40 animate-pulse border border-border/40" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="p-16 flex flex-col items-center text-center">
-            <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-              <Database className="w-6 h-6 text-primary" />
+        <div className="relative group overflow-hidden py-32 border border-border/40 rounded-[48px] bg-card/10 backdrop-blur-md flex flex-col items-center justify-center text-center">
+          <div className="absolute inset-0 opacity-20 group-hover:opacity-30 transition-opacity duration-1000 grayscale group-hover:grayscale-0 pointer-events-none">
+            <img 
+              src="/assets/illustrations/no_connections.png" 
+              alt="Empty State"
+              className="w-full h-full object-cover scale-110 group-hover:scale-100 transition-transform duration-[3000ms]"
+            />
+          </div>
+          
+          <div className="relative z-10 space-y-6 max-w-lg px-6">
+            <div className="w-24 h-24 mx-auto rounded-full bg-primary/10 flex items-center justify-center text-primary shadow-2xl backdrop-blur-xl border border-primary/20">
+              <Database className="w-10 h-10 animate-bounce" />
             </div>
-            <h3 className="text-sm font-semibold text-foreground">
-              {search ? "No matching connections" : "No connections yet"}
-            </h3>
-            <p className="text-xs text-muted-foreground mt-1 max-w-xs">
-              {search
-                ? "Try adjusting your search."
-                : "Add your first database connection to start building data pipelines."}
+            <h3 className="text-3xl font-black text-foreground tracking-tight">No Active Bridges Identified</h3>
+            <p className="text-sm font-bold text-muted-foreground/60 leading-relaxed uppercase tracking-tighter">
+              Start by connecting your first data instance to initiate high-performance global pipelines across your enterprise infrastructure.
             </p>
-            {!search && (
-              <Button onClick={openNew} size="sm" className="mt-4 gap-1.5">
-                <Plus className="w-3.5 h-3.5" /> Add Connection
+            <div className="pt-4">
+              <Button onClick={openNew} className="px-10 h-14 rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl shadow-primary/40">
+                 Establish First Bridge <Plus className="ml-2 w-5 h-5" />
               </Button>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          </div>
+        </div>
+      ) : view === "grid" ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8">
+          {filtered.map((conn) => (
+            <ConnectionCard
+              key={conn.id}
+              connection={conn}
+              onEdit={openEdit}
+              onDelete={setDeleteId}
+              onBrowse={handleBrowseExplorer}
+              dbConfigs={DB_TYPES}
+            />
+          ))}
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((conn) => {
-            const cfg = getDbConfig(conn.type);
-            const Icon = cfg.icon;
-            const connected = conn.status === "connected";
-            return (
-              <Card
-                key={conn.id}
-                className={cn(
-                  "group cursor-pointer hover:border-primary/40 transition-all hover:shadow-md",
-                  conn.status === "error" && "border-destructive/30"
-                )}
-                onClick={() => openEdit(conn)}
-              >
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className={cn("w-10 h-10 rounded-lg bg-muted flex items-center justify-center", cfg.color)}>
-                      <Icon className="w-5 h-5" />
+        <div className="rounded-[32px] border border-border/40 bg-card/30 backdrop-blur-xl overflow-hidden shadow-2xl">
+          <Table>
+            <TableHeader className="bg-muted/10">
+              <TableRow className="hover:bg-transparent border-border/40">
+                <TableHead className="text-[10px] font-black uppercase tracking-widest p-6">Name & Type</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest p-6">Host Endpoint</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest p-6">Warehouse / DB</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest p-6">Last Verified</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest p-6">Status</TableHead>
+                <TableHead className="text-[10px] font-black uppercase tracking-widest p-6 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((conn) => (
+                <TableRow key={conn.id} className="border-border/20 hover:bg-primary/5 transition-colors group cursor-pointer" onClick={() => openEdit(conn)}>
+                  <TableCell className="p-6">
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "w-8 h-8 rounded-lg flex items-center justify-center border border-border/40",
+                        DB_TYPES.find(d => d.type === conn.type)?.color.replace('text-', 'bg-').replace('-500', '/10').replace('-400', '/10')
+                      )}>
+                        {(() => {
+                          const Icon = DB_TYPES.find(d => d.type === conn.type)?.icon || Database;
+                          return <Icon className={cn("w-4 h-4", DB_TYPES.find(d => d.type === conn.type)?.color)} />;
+                        })()}
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-foreground tracking-tight">{conn.name}</p>
+                        <p className="text-[9px] font-black uppercase tracking-tighter text-muted-foreground/40">{conn.type}</p>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <Badge
-                        variant={connected ? "default" : "destructive"}
-                        className={cn(
-                          "text-[10px] h-5",
-                          connected && "bg-success text-success-foreground hover:bg-success/90"
-                        )}
-                      >
-                        {connected ? "Connected" : conn.status}
-                      </Badge>
+                  </TableCell>
+                  <TableCell className="p-6">
+                    <p className="text-xs font-bold font-mono text-muted-foreground group-hover:text-primary transition-colors">{conn.host}:{conn.port}</p>
+                  </TableCell>
+                  <TableCell className="p-6">
+                     <p className="text-[11px] font-bold text-foreground/80">
+                        {conn.type === "snowflake" ? (conn.warehouse_name || 'N/A') : conn.database_name}
+                        {conn.type === "snowflake" && <span className="text-muted-foreground/40 mx-2">/</span>}
+                        {conn.type === "snowflake" && conn.database_name}
+                     </p>
+                  </TableCell>
+                  <TableCell className="p-6">
+                    <p className="text-[11px] font-bold text-muted-foreground">
+                      {conn.last_tested_at ? new Date(conn.last_tested_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Never"}
+                    </p>
+                  </TableCell>
+                  <TableCell className="p-6">
+                    <div className={cn(
+                      "inline-flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border",
+                      conn.status === "connected" ? "bg-success/10 text-success border-success/20" : 
+                      conn.status === "error" ? "bg-destructive/10 text-destructive border-destructive/20" : 
+                      "bg-muted text-muted-foreground border-border/40"
+                    )}>
+                      <div className={cn("w-1 h-1 rounded-full", conn.status === "connected" ? "bg-success animate-pulse" : conn.status === "error" ? "bg-destructive" : "bg-muted-foreground/40")} />
+                      {conn.status === "connected" ? "Live" : conn.status === "error" ? "Failure" : "Offline"}
                     </div>
-                  </div>
-
-                  <h3 className="font-semibold text-sm text-foreground truncate">{conn.name}</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5 font-mono truncate">
-                    {conn.host}:{conn.port}/{conn.database_name}
-                  </p>
-
-                  <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
-                    <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {conn.last_tested_at
-                        ? new Date(conn.last_tested_at).toLocaleDateString()
-                        : "Never tested"}
-                    </span>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {conn.status === "connected" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openSchema(conn);
-                          }}
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 hover:text-destructive hover:bg-destructive/10"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteId(conn.id);
-                        }}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
+                  </TableCell>
+                  <TableCell className="p-6 text-right">
+                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={(e) => { e.stopPropagation(); handleBrowseExplorer(conn); }}>
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteId(conn.id); }}>
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
 
-      {/* ===== New / Edit Connection Dialog ===== */}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden">
-          {/* Stepper header */}
-          <div className="px-6 pt-5 pb-4 border-b border-border">
-            <DialogHeader>
-              <DialogTitle className="text-base font-display">
-                {editingId ? "Edit Connection" : "New Connection"}
-              </DialogTitle>
-              <DialogDescription className="text-xs">
-                {step === "type" && "Choose the database type to connect."}
-                {step === "details" && "Enter your connection credentials."}
-                {step === "test" && "Connection verified — ready to save."}
-              </DialogDescription>
-            </DialogHeader>
-            {/* Step indicators */}
-            <div className="flex items-center gap-2 mt-3">
-              {(["type", "details", "test"] as Step[]).map((s, i) => (
-                <div key={s} className="flex items-center gap-2">
-                  <div
-                    className={cn(
-                      "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-semibold transition-colors",
-                      step === s
-                        ? "bg-primary text-primary-foreground"
-                        : (["type", "details", "test"].indexOf(step) > i
-                          ? "bg-success text-success-foreground"
-                          : "bg-muted text-muted-foreground")
-                    )}
-                  >
-                    {["type", "details", "test"].indexOf(step) > i ? "✓" : i + 1}
-                  </div>
-                  {i < 2 && (
-                    <ChevronRight className="w-3 h-3 text-muted-foreground" />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+      {/* Dialogs */}
+      <ConnectionWizard
+        open={open}
+        onOpenChange={setOpen}
+        editingId={editingId}
+        form={form}
+        setForm={setForm}
+        onTest={handleTest}
+        onSave={handleSave}
+        onDiscoverResources={(p) => resourceDiscovery.mutateAsync(p)}
+        testResult={testResult}
+        dbConfigs={DB_TYPES}
+        isTesting={testMutation.isPending}
+        isSaving={createMutation.isPending || updateMutation.isPending}
+      />
 
-          {/* Step: Type Selection */}
-          {step === "type" && (
-            <div className="p-6 grid grid-cols-2 gap-3">
-              {DB_TYPES.map((db) => (
-                <button
-                  key={db.type}
-                  onClick={() => selectType(db.type)}
-                  className={cn(
-                    "flex items-center gap-3 p-4 rounded-lg border transition-all text-left hover:border-primary/50 hover:shadow-sm",
-                    form.type === db.type
-                      ? "border-primary bg-primary/5"
-                      : "border-border"
-                  )}
-                >
-                  <div className={cn("w-10 h-10 rounded-lg bg-muted flex items-center justify-center", db.color)}>
-                    <db.icon className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{db.label}</p>
-                    <p className="text-[10px] text-muted-foreground">Port {DEFAULT_PORTS[db.type]}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
 
-          {/* Step: Connection Details */}
-          {step === "details" && (
-            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
-              {/* Back to type */}
-              {!editingId && (
-                <button
-                  onClick={() => setStep("type")}
-                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mb-2"
-                >
-                  <ArrowLeft className="w-3 h-3" /> Change type
-                </button>
-              )}
+      <ConnectionExplorer
+        open={explorerOpen}
+        onOpenChange={setExplorerOpen}
+        connection={explorerConn}
+      />
 
-              {/* Selected type badge */}
-              <div className="flex items-center gap-2 mb-2">
-                <div className={cn("w-6 h-6 rounded flex items-center justify-center bg-muted", dbConfig.color)}>
-                  <dbConfig.icon className="w-3.5 h-3.5" />
-                </div>
-                <span className="text-xs font-medium text-foreground">{dbConfig.label}</span>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs">Connection Name</Label>
-                <Input
-                  placeholder="e.g. Production Sales DB"
-                  value={form.name}
-                  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2 space-y-1.5">
-                  <Label className="text-xs">
-                    {form.type === "snowflake" ? "Account URL" : "Host"}
-                  </Label>
-                  <Input
-                    placeholder={dbConfig.placeholder.host}
-                    value={form.host}
-                    onChange={(e) => setForm((p) => ({ ...p, host: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Port</Label>
-                  <Input
-                    type="number"
-                    value={form.port}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, port: parseInt(e.target.value) || 0 }))
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs">
-                  {form.type === "snowflake" ? "Warehouse" : "Database"}
-                </Label>
-                <Input
-                  placeholder={dbConfig.placeholder.db}
-                  value={form.database_name}
-                  onChange={(e) => setForm((p) => ({ ...p, database_name: e.target.value }))}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Username</Label>
-                  <Input
-                    value={form.username}
-                    onChange={(e) => setForm((p) => ({ ...p, username: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Password</Label>
-                  <Input
-                    type="password"
-                    value={form.password}
-                    onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between pt-2">
-                <div className="flex items-center gap-2">
-                  <Shield className="w-3.5 h-3.5 text-muted-foreground" />
-                  <Label className="text-xs cursor-pointer">SSL / TLS</Label>
-                  <Switch
-                    checked={form.ssl_enabled}
-                    onCheckedChange={(v) => setForm((p) => ({ ...p, ssl_enabled: v }))}
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-                  <Label className="text-xs">Timeout</Label>
-                  <Input
-                    type="number"
-                    min={5}
-                    max={300}
-                    value={form.timeout_seconds}
-                    onChange={(e) =>
-                      setForm((p) => ({
-                        ...p,
-                        timeout_seconds: Math.max(5, Math.min(300, parseInt(e.target.value) || 30)),
-                      }))
-                    }
-                    className="w-16 h-8 text-xs"
-                  />
-                  <span className="text-[10px] text-muted-foreground">sec</span>
-                </div>
-              </div>
-
-              {/* Test result inline */}
-              {testResult && !testResult.success && (
-                <div className="flex items-start gap-2 p-3 rounded-md border border-destructive/30 bg-destructive/5">
-                  <XCircle className="w-4 h-4 text-destructive mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-xs font-medium text-destructive">Connection failed</p>
-                    {testResult.error && (
-                      <p className="text-[10px] text-destructive/80 mt-0.5">{testResult.error}</p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  className="gap-1.5"
-                  disabled={!canProceedToTest || testMutation.isPending}
-                  onClick={handleTest}
-                >
-                  {testMutation.isPending ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Zap className="w-3.5 h-3.5" />
-                  )}
-                  {testMutation.isPending ? "Testing…" : "Test & Continue"}
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Step: Test Success — Save */}
-          {step === "test" && testResult?.success && (
-            <div className="p-6 space-y-4">
-              <div className="flex items-center gap-3 p-4 rounded-lg border border-success/30 bg-success/5">
-                <CheckCircle className="w-8 h-8 text-success shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground">Connection verified!</p>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
-                    {testResult.server_version && (
-                      <span className="text-[11px] text-muted-foreground">
-                        Version: <span className="text-foreground font-mono">{testResult.server_version}</span>
-                      </span>
-                    )}
-                    <span className="text-[11px] text-muted-foreground">
-                      Latency: <span className="text-foreground font-mono">{testResult.latency_ms}ms</span>
-                    </span>
-                    {testResult.tables_count !== undefined && (
-                      <span className="text-[11px] text-muted-foreground">
-                        Tables: <span className="text-foreground font-mono">{testResult.tables_count}</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Summary */}
-              <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-2">
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <span className="text-muted-foreground">Name</span>
-                    <p className="font-medium text-foreground truncate">{form.name}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Type</span>
-                    <p className="font-medium text-foreground">{dbConfig.label}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Host</span>
-                    <p className="font-medium text-foreground font-mono truncate">
-                      {form.host}:{form.port}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Database</span>
-                    <p className="font-medium text-foreground font-mono truncate">
-                      {form.database_name}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-between">
-                <Button variant="outline" size="sm" onClick={() => setStep("details")}>
-                  <ArrowLeft className="w-3 h-3 mr-1" /> Back
-                </Button>
-                <Button size="sm" className="gap-1.5" disabled={saving} onClick={handleSave}>
-                  {saving ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <CheckCircle className="w-3.5 h-3.5" />
-                  )}
-                  {editingId ? "Update Connection" : "Save Connection"}
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* ===== Delete Confirmation ===== */}
       <Dialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Delete Connection</DialogTitle>
-            <DialogDescription>
-              This will permanently delete{" "}
-              <span className="font-semibold text-foreground">
-                {connections.find((c) => c.id === deleteId)?.name}
-              </span>
-              . Pipelines using this connection may break.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex gap-2 justify-end mt-2">
-            <Button variant="outline" size="sm" onClick={() => setDeleteId(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              disabled={deleteMutation.isPending}
-              onClick={handleDelete}
-              className="gap-1"
-            >
-              {deleteMutation.isPending ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : (
-                <Trash2 className="w-3 h-3" />
-              )}
-              Delete
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* ===== Schema Browser Dialog ===== */}
-      <Dialog open={schemaOpen} onOpenChange={setSchemaOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-0 gap-0">
-          <div className="px-6 pt-5 pb-4 border-b border-border shrink-0">
+        <DialogContent className="max-w-sm rounded-3xl p-8 bg-card/95 backdrop-blur-xl border-border/50">
+          <div className="flex flex-col items-center text-center space-y-4">
+            <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center text-destructive mb-2">
+              <RefreshCw className="w-8 h-8" />
+            </div>
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-base font-display">
-                <Table2 className="w-4 h-4 text-primary" />
-                Schema Browser
-                {schemaConn && (
-                  <Badge variant="secondary" className="text-[10px] ml-1 font-mono">
-                    {schemaConn.name}
-                  </Badge>
-                )}
-              </DialogTitle>
-              <DialogDescription className="text-xs">
-                Explore tables and columns from this connection.
+              <DialogTitle className="text-xl font-bold">Dismantle Bridge?</DialogTitle>
+              <DialogDescription className="text-xs leading-relaxed">
+                You are about to permanently disconnect <span className="text-foreground font-bold">{connections.find(c => c.id === deleteId)?.name}</span>. This may impact downstream pipelines.
               </DialogDescription>
             </DialogHeader>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
-            {schemaTables.length === 0 ? (
-              <div className="space-y-3">
-                <p className="text-xs text-muted-foreground">
-                  Enter the password to discover the schema.
-                </p>
-                <div className="flex gap-2">
-                  <Input
-                    type="password"
-                    placeholder="Database password"
-                    value={schemaPassword}
-                    onChange={(e) => setSchemaPassword(e.target.value)}
-                    className="flex-1"
-                  />
-                  <Button
-                    size="sm"
-                    className="gap-1.5"
-                    disabled={schemaMutation.isPending}
-                    onClick={handleDiscover}
-                  >
-                    {schemaMutation.isPending ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <RefreshCw className="w-3.5 h-3.5" />
-                    )}
-                    Discover
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">
-                    {schemaTables.length} table{schemaTables.length !== 1 ? "s" : ""} found
-                  </p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 gap-1 text-xs"
-                    onClick={() => {
-                      setSchemaTables([]);
-                      setSchemaPassword("");
-                    }}
-                  >
-                    <RefreshCw className="w-3 h-3" /> Re-scan
-                  </Button>
-                </div>
-
-                <div className="space-y-1">
-                  {schemaTables.map((tbl) => {
-                    const key = `${tbl.schema_name}.${tbl.table_name}`;
-                    const expanded = schemaExpanded === key;
-                    return (
-                      <div key={key} className="rounded-md border border-border overflow-hidden">
-                        <button
-                          onClick={() => setSchemaExpanded(expanded ? null : key)}
-                          className="w-full flex items-center justify-between px-3 py-2 hover:bg-muted/50 transition-colors text-left"
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <Table2 className="w-3.5 h-3.5 text-primary shrink-0" />
-                            <span className="text-xs font-mono font-medium text-foreground truncate">
-                              {tbl.schema_name}.{tbl.table_name}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <Badge variant="secondary" className="text-[10px] h-5">
-                              ~{tbl.row_count_estimate.toLocaleString()} rows
-                            </Badge>
-                            <Badge variant="outline" className="text-[10px] h-5">
-                              {tbl.columns.length} cols
-                            </Badge>
-                            <ChevronRight
-                              className={cn(
-                                "w-3 h-3 text-muted-foreground transition-transform",
-                                expanded && "rotate-90"
-                              )}
-                            />
-                          </div>
-                        </button>
-                        {expanded && (
-                          <div className="border-t border-border">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead className="text-[10px] h-8">Column</TableHead>
-                                  <TableHead className="text-[10px] h-8">Type</TableHead>
-                                  <TableHead className="text-[10px] h-8">Nullable</TableHead>
-                                  <TableHead className="text-[10px] h-8">PK</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {tbl.columns.map((col) => (
-                                  <TableRow key={col.name}>
-                                    <TableCell className="text-xs font-mono py-1.5">
-                                      {col.name}
-                                    </TableCell>
-                                    <TableCell className="text-[10px] text-muted-foreground py-1.5 font-mono">
-                                      {col.data_type}
-                                    </TableCell>
-                                    <TableCell className="py-1.5">
-                                      {col.is_nullable ? (
-                                        <span className="text-[10px] text-muted-foreground">yes</span>
-                                      ) : (
-                                        <span className="text-[10px] text-foreground font-medium">no</span>
-                                      )}
-                                    </TableCell>
-                                    <TableCell className="py-1.5">
-                                      {col.is_primary_key && (
-                                        <Badge className="text-[9px] h-4 bg-primary/10 text-primary border-0">
-                                          PK
-                                        </Badge>
-                                      )}
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
+            <div className="flex gap-2 w-full pt-4">
+              <Button variant="ghost" className="flex-1 font-bold" onClick={() => setDeleteId(null)}>
+                Abort
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1 font-bold shadow-lg shadow-destructive/20"
+                disabled={deleteMutation.isPending}
+                onClick={handleDelete}
+              >
+                {deleteMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm"}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

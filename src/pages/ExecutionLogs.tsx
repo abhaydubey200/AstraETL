@@ -2,11 +2,10 @@ import { useState } from "react";
 import { Search, ChevronDown, ChevronRight, CheckCircle, Clock, XCircle, Terminal, Download, Calendar, Loader2 } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
 import { cn } from "@/lib/utils";
-import { usePipelineRuns } from "@/hooks/use-executions";
+import { usePipelineRuns, useExecutionLogs } from "@/hooks/use-executions";
 import { usePipelines } from "@/hooks/use-pipelines";
-import { supabaseUntyped as supabase } from "@/integrations/supabase/untyped-client";
-import { useQuery } from "@tanstack/react-query";
 import type { ExecutionLog } from "@/types/execution";
+
 
 const ExecutionLogs = () => {
   const [expandedRun, setExpandedRun] = useState<string | null>(null);
@@ -25,19 +24,8 @@ const ExecutionLogs = () => {
   const { data: pipelines = [] } = usePipelines();
 
   // Fetch logs for expanded run
-  const { data: expandedLogs = [] } = useQuery<ExecutionLog[]>({
-    queryKey: ["execution_logs", expandedRun],
-    enabled: !!expandedRun,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("execution_logs")
-        .select("*")
-        .eq("run_id", expandedRun!)
-        .order("timestamp", { ascending: true });
-      if (error) throw error;
-      return (data as ExecutionLog[]) ?? [];
-    },
-  });
+  const { data: expandedLogs = [] } = useExecutionLogs({ runId: expandedRun || undefined });
+
 
   const getPipelineName = (pipelineId: string) =>
     pipelines.find((p) => p.id === pipelineId)?.name || "Unknown Pipeline";

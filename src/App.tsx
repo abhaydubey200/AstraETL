@@ -7,6 +7,7 @@ import { AuthProvider } from "@/components/AuthProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AppLayout from "@/components/AppLayout";
+import { SelfHealingErrorBoundary } from "@/components/SelfHealingErrorBoundary";
 import Dashboard from "@/pages/Dashboard";
 import Pipelines from "@/pages/Pipelines";
 import PipelineDetail from "@/pages/PipelineDetail";
@@ -21,51 +22,59 @@ import AuthPage from "@/pages/AuthPage";
 import ResetPassword from "@/pages/ResetPassword";
 import AlertsPage from "@/pages/AlertsPage";
 import DocsPage from "@/pages/DocsPage";
+import CostDashboard from "@/pages/CostDashboard";
+import Marketplace from "@/pages/Marketplace";
+import AuditLogs from "@/pages/AuditLogs";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/auth" element={<AuthPage />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route
-              path="/*"
-              element={
-                <ProtectedRoute>
-                  <AppLayout>
-                    <Routes>
-                      <Route path="/" element={<Dashboard />} />
-                      <Route path="/pipelines" element={<Pipelines />} />
-                      <Route path="/pipelines/new" element={<PipelineBuilderPage />} />
-                      <Route path="/pipelines/:id" element={<PipelineDetail />} />
-                      <Route path="/pipelines/:id/edit" element={<PipelineBuilderPage />} />
-                      <Route path="/connections" element={<Connections />} />
-                      <Route path="/logs" element={<ExecutionLogs />} />
-                      <Route path="/monitoring" element={<Monitoring />} />
-                      <Route path="/catalog" element={<Catalog />} />
-                      <Route path="/governance" element={<Governance />} />
-                      <Route path="/alerts" element={<AlertsPage />} />
-                      <Route path="/docs" element={<DocsPage />} />
-                      <Route path="/settings" element={<SettingsPage />} />
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </AppLayout>
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-    </ThemeProvider>
+    <SelfHealingErrorBoundary>
+      <ThemeProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <AuthProvider>
+            <Routes>
+              <Route path="/auth" element={<AuthPage />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route
+                path="/*"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <Routes>
+                        <Route path="/" element={<Dashboard />} />
+                        <Route path="/pipelines" element={<Pipelines />} />
+                        <Route path="/pipelines/new" element={<PipelineBuilderPage />} />
+                        <Route path="/pipelines/:id" element={<PipelineDetail />} />
+                        <Route path="/pipelines/:id/edit" element={<PipelineBuilderPage />} />
+                        <Route path="/connections" element={<Connections />} />
+                        <Route path="/logs" element={<ExecutionLogs />} />
+                        <Route path="/monitoring" element={<Monitoring />} />
+                        <Route path="/catalog" element={<Catalog />} />
+                        <Route path="/governance" element={<Governance />} />
+                        <Route path="/costs" element={<CostDashboard />} />
+                        <Route path="/alerts" element={<AlertsPage />} />
+                        <Route path="/docs" element={<DocsPage />} />
+                        <Route path="/settings" element={<SettingsPage />} />
+                        <Route path="/marketplace" element={<Marketplace />} />
+                        <Route path="/audit" element={<AuditLogs />} />
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+      </ThemeProvider>
+    </SelfHealingErrorBoundary>
   </QueryClientProvider>
 );
 

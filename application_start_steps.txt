@@ -1,0 +1,68 @@
+# AstraFlow Complete Application Setup & Start Guide
+
+This document provides the complete details on how to set up and start the AstraFlow (crystal-flow-bridge) application from scratch. The application consists of a Python FastAPI backend and a React/Vite frontend.
+
+---
+
+## Part 1: Initial Setup & Installation
+
+You only need to perform these steps once to configure your local environment.
+
+### 1. Backend Setup (Python)
+
+Open a terminal in the root `crystal-flow-bridge` directory and run:
+
+```cmd
+cd backend
+
+# (Optional but Recommended) Create and activate a virtual environment:
+python -m venv venv
+venv\Scripts\activate
+
+# Install the required Python dependencies:
+pip install -r requirements.txt
+```
+
+### 2. Frontend Setup (Node.js/React)
+
+Open a new terminal in the root `crystal-flow-bridge` directory and run:
+
+```cmd
+# Install the necessary Node.js dependencies:
+npm install
+```
+
+---
+
+## Part 2: Starting the Application
+
+To completely start the application for development, you need to run both the backend API and the frontend client servers simultaneously. Open two separate terminal windows.
+
+### 1. Start the Backend API
+
+Run the following commands in the first terminal:
+
+```cmd
+cd backend
+set ASTRA_DEBUG_MODE=true
+set USE_MOCK_DB=true
+python main.py
+```
+*(Alternatively, you can just run `start_backend.bat` from the root directory instead.)*
+
+### 2. Start the Frontend Application
+
+Run the following command in the second terminal:
+
+```cmd
+npm run dev
+```
+*(Alternatively, you can just run `start_frontend.bat` from the root directory instead.)*
+
+---
+
+## Part 3: Accessing the Application
+
+Once both servers are running:
+- **Frontend App:** Open your browser and navigate to the Local URL provided by Vite (typically `http://localhost:5173`)
+- **Backend API Docs:** You can view the API documentation at `http://localhost:8088/docs`

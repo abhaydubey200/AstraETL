@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: astra-scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: astra-scheduler
+  template:
+    metadata:
+      labels:
+        app: astra-scheduler
+    spec:
+      containers:
+      - name: astra-scheduler
+        image: astraflow/backend:latest
+        command: ["python", "-m", "backend.services.scheduler_service"]
+        envFrom:
+        - secretRef:
+            name: astra-secrets
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"

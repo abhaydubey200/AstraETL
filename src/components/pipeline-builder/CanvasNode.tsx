@@ -38,7 +38,28 @@ const CanvasNode = memo(({ node, selected, zoom, onMouseDown, onClick, onPortDow
           <div className={cn("w-7 h-7 rounded-md flex items-center justify-center shrink-0", cfg.bg)}>
             <Icon className={cn("w-3.5 h-3.5", cfg.color)} />
           </div>
-          <span className="text-xs font-medium text-foreground truncate flex-1">{node.label}</span>
+          <div className="flex-1 min-w-0">
+             {(() => {
+               const st = node.config.source_table || node.config.target_table;
+               const sd = node.config.source_database || node.config.target_database;
+               const ss = node.config.source_schema || node.config.target_schema;
+               const sw = node.config.source_warehouse || node.config.target_warehouse;
+
+               if (st) {
+                 return (
+                   <div className="flex flex-col">
+                     <span className="text-[7px] font-black uppercase tracking-tighter text-muted-foreground/50 truncate leading-none mb-0.5">
+                        {sw ? `${sw}.` : ""}{sd}.{ss}
+                     </span>
+                     <span className="text-[11px] font-black text-foreground truncate leading-none">
+                        {st}
+                     </span>
+                   </div>
+                 );
+               }
+               return <span className="text-xs font-bold text-foreground truncate">{node.label}</span>;
+             })()}
+          </div>
           {selected && (
             <button
               onClick={(e) => { e.stopPropagation(); onDelete(node.id); }}

@@ -59,6 +59,17 @@ Deno.serve(async (req) => {
       triggered.push(pipeline.name);
     }
 
+    // Also trigger periodic health check for all connections
+    try {
+      await supabase.functions.invoke("health-check", {
+        headers: {
+          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        },
+      });
+    } catch (e) {
+      console.error("Failed to trigger background health check:", e);
+    }
+
     return new Response(
       JSON.stringify({ triggered, count: triggered.length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -4,6 +4,22 @@ import NotificationBell from "./NotificationBell";
 import ThemeToggle from "./ThemeToggle";
 import { Menu } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ChevronDown, Globe } from "lucide-react";
+
+export const WorkspaceSwitcher = () => (
+  <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-all bg-card/30 mr-4">
+    <div className="w-5 h-5 rounded bg-primary/20 flex items-center justify-center">
+       <Globe className="w-3 h-3 text-primary" />
+    </div>
+    <div className="text-left">
+       <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest leading-none mb-1">Tenant</p>
+       <p className="text-[11px] font-bold text-foreground flex items-center gap-1 leading-none">
+          AstraFlow Global
+          <ChevronDown className="w-3 h-3 text-muted-foreground" />
+       </p>
+    </div>
+  </button>
+);
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const isMobile = useIsMobile();
@@ -28,6 +44,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                 <Menu className="w-5 h-5" />
               </button>
             )}
+            {!isMobile && <WorkspaceSwitcher />}
           </div>
           <div className="flex items-center gap-1">
             <ThemeToggle />

@@ -73,7 +73,11 @@ const Pipelines = () => {
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   };
@@ -92,8 +96,9 @@ const Pipelines = () => {
       toast({ title: "Pipeline deleted" });
       setShowDelete(null);
       setSelected((prev) => { const n = new Set(prev); n.delete(id); return n; });
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "An unknown error occurred";
+      toast({ title: "Error", description: message, variant: "destructive" });
     }
   };
 
@@ -104,8 +109,9 @@ const Pipelines = () => {
       }
       toast({ title: `${selected.size} pipeline(s) deleted` });
       setSelected(new Set());
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "An unknown error occurred";
+      toast({ title: "Error", description: message, variant: "destructive" });
     }
   };
 
@@ -113,8 +119,9 @@ const Pipelines = () => {
     try {
       await duplicateMutation.mutateAsync(id);
       toast({ title: "Pipeline duplicated" });
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "An unknown error occurred";
+      toast({ title: "Error", description: message, variant: "destructive" });
     }
   };
 
@@ -122,8 +129,9 @@ const Pipelines = () => {
     try {
       await triggerRun.mutateAsync({ pipelineId: id, userId: user?.id });
       toast({ title: "Pipeline execution started" });
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "An unknown error occurred";
+      toast({ title: "Error", description: message, variant: "destructive" });
     }
   };
 
@@ -318,7 +326,7 @@ const Pipelines = () => {
           <DialogHeader>
             <DialogTitle>Delete Pipeline</DialogTitle>
             <DialogDescription>
-              This will permanently delete <span className="text-foreground font-medium">{pipelines.find((p) => p.id === showDelete)?.name}</span> and all its nodes and edges.
+              Are you sure you want to delete this pipeline? This will permanently remove <span className="text-foreground font-medium">{pipelines.find((p) => p.id === showDelete)?.name || "the selected pipeline"}</span> and all its associated nodes and edges.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">

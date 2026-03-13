@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { BuilderNode, BuilderEdge, NodeType, snapToGrid, NODE_WIDTH, NODE_HEIGHT } from "./types";
 
 export function useCanvasState(
@@ -11,6 +11,17 @@ export function useCanvasState(
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const idCounter = useRef(Date.now());
+
+  // Sync state with initial values when they load
+  const hasInitialized = useRef(false);
+  
+  useEffect(() => {
+    if (initialNodes.length > 0 && !hasInitialized.current) {
+      setNodes(initialNodes);
+      setEdges(initialEdges);
+      hasInitialized.current = true;
+    }
+  }, [initialNodes, initialEdges]);
 
   const addNode = useCallback((type: NodeType) => {
     const id = `n${idCounter.current++}`;

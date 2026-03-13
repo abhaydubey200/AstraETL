@@ -1,0 +1,28 @@
+﻿INFRA: asyncpg has been monkey-patched with MockDatabase.
+INFRA: StorageService has been monkey-patched with MockStorage.
+Worker processing job 7b1c10d1-d347-4a88-bd9a-b1e2ac781fe5 [Stage: extract] for Pipeline 2cdcd98d-148d-4cdb-a205-aa583e22c1db
+Mock DB: fetchval -> INSERT INTO public.pipeline_partitions (pipeline_run_id, table_name, partition_key, range_start, range_end) VALUES ($1, $2, $3, $4, $5) RETURNING id
+Mock DB: fetchval -> INSERT INTO public.pipeline_partitions (pipeline_run_id, table_name, partition_key, range_start, range_end) VALUES ($1, $2, $3, $4, $5) RETURNING id
+Mock DB: fetchval -> INSERT INTO public.pipeline_partitions (pipeline_run_id, table_name, partition_key, range_start, range_end) VALUES ($1, $2, $3, $4, $5) RETURNING id
+Mock DB: fetchval -> INSERT INTO public.pipeline_partitions (pipeline_run_id, table_name, partition_key, range_start, range_end) VALUES ($1, $2, $3, $4, $5) RETURNING id
+Mock DB: execute -> UPDATE public.astra_worker_queue SET status = $1, error_text = $2, updated_at = NOW() WHERE id = $3
+Mock DB: fetchrow -> SELECT run_id FROM public.astra_worker_queue WHERE id = $1
+Error processing job 7b1c10d1-d347-4a88-bd9a-b1e2ac781fe5: 'NoneType' object has no attribute 'split'
+Worker processing job 7b1c10d1-d347-4a88-bd9a-b1e2ac781fe5 [Stage: validate] for Pipeline 2cdcd98d-148d-4cdb-a205-aa583e22c1db
+Mock DB: fetch -> SELECT * FROM validation_rules WHERE pipeline_id = $1
+Validation passed for run de4fe182-af3b-4e78-87ab-a735225891fa
+Mock DB: execute -> UPDATE public.astra_worker_queue SET status = $1, error_text = $2, updated_at = NOW() WHERE id = $3
+Mock DB: fetchval -> SELECT count(*) FROM public.pipeline_runs WHERE id = $1 AND status != 'failed'
+Mock DB: execute -> INSERT INTO public.astra_worker_queue (pipeline_id, run_id, stage, payload, status, scheduled_at) VALUES ($1, $2, $3, $4, 'pending', $5)
+Job 7b1c10d1-d347-4a88-bd9a-b1e2ac781fe5 completed successfully.
+Worker processing job 7b1c10d1-d347-4a88-bd9a-b1e2ac781fe5 [Stage: load] for Pipeline 2cdcd98d-148d-4cdb-a205-aa583e22c1db
+Mock DB: fetchval -> INSERT INTO public.bulk_load_jobs (pipeline_run_id, target_table, command_type, status, started_at) VALUES ($1, $2, 'SNOWFLAKE_COPY', 'running', NOW()) RETURNING id
+Simulating Snowflake COPY INTO None from staging/de4fe182-af3b-4e78-87ab-a735225891fa/None/
+Mock DB: execute -> UPDATE public.bulk_load_jobs SET status = 'success', completed_at = NOW(), rows_loaded = 1000000 WHERE id = $1
+Mock DB: execute -> UPDATE public.astra_worker_queue SET status = $1, error_text = $2, updated_at = NOW() WHERE id = $3
+Mock DB: execute -> UPDATE public.pipeline_runs SET status = 'completed', finished_at = NOW() WHERE id = $1
+Mock DB: fetchrow -> SELECT id FROM public.data_assets WHERE asset_name = $1 AND asset_type = $2 AND source_type = $3
+Mock DB: fetchrow -> INSERT INTO public.data_assets (asset_name, asset_type, source_type) VALUES ($1, $2, $3) RETURNING id
+Mock DB: execute -> UPDATE public.astra_worker_queue SET status = $1, error_text = $2, updated_at = NOW() WHERE id = $3
+Mock DB: fetchrow -> SELECT run_id FROM public.astra_worker_queue WHERE id = $1
+Error processing job 7b1c10d1-d347-4a88-bd9a-b1e2ac781fe5: Failed to create or retrieve asset ID

@@ -1,0 +1,107 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.10.11, pytest-9.0.2, pluggy-1.6.0 -- C:\Program Files\Python310\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\Abhay Dubey\Desktop\AstraFlow\crystal-flow-bridge\backend
+plugins: anyio-4.12.1, asyncio-1.3.0
+asyncio: mode=strict, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 5 items
+
+tests/test_services.py::test_analytics_service_trends FAILED             [ 20%]
+tests/test_services.py::test_ai_insight_service_anomalies PASSED         [ 40%]
+tests/test_services.py::test_validation_service_rules PASSED             [ 60%]
+tests/test_services.py::test_lineage_service_record FAILED               [ 80%]
+tests/test_services.py::test_governance_service_audit PASSED             [100%]
+
+================================== FAILURES ===================================
+________________________ test_analytics_service_trends ________________________
+
+mock_db_conn = <AsyncMock id='1987141709312'>
+
+    @pytest.mark.asyncio
+    async def test_analytics_service_trends(mock_db_conn):
+        with patch('services.analytics_service.AnalyticsService._get_db_connection', return_value=mock_db_conn):
+            service = AnalyticsService()
+            mock_db_conn.fetch.return_value = [
+                {'hour': '2026-03-10T10:00:00', 'avg_throughput': 100, 'avg_latency': 50, 'error_rate': 0.01}
+            ]
+    
+>           trends = await service.get_performance_trends()
+
+tests\test_services.py:23: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <services.analytics_service.AnalyticsService object at 0x000001CEAAE3E4A0>
+pipeline_id = None, hours = 24
+
+    async def get_performance_trends(self, pipeline_id: Optional[str] = None, hours: int = 24) -> Dict[str, Any]:
+        """Aggregates metrics to show performance trends over time."""
+        conn = await self._get_db_connection()
+        try:
+            start_time = datetime.now() - timedelta(hours=hours)
+    
+            query = """
+                SELECT
+                    metric_name,
+                    date_trunc('hour', recorded_at) as bucket,
+                    AVG(metric_value) as avg_value,
+                    MAX(metric_value) as max_value,
+                    COUNT(*) as sample_count
+                FROM system_metrics
+                WHERE recorded_at >= $1
+            """
+            params = [start_time]
+    
+            if pipeline_id:
+                query += " AND (dimensions->>'pipeline_id' = $2)"
+                params.append(pipeline_id)
+    
+            query += " GROUP BY metric_name, bucket ORDER BY bucket ASC"
+    
+            rows = await conn.fetch(query, *params)
+    
+            # Format results into a time-series friendly structure
+            trends = {}
+            for row in rows:
+>               m_name = row['metric_name']
+E               KeyError: 'metric_name'
+
+services\analytics_service.py:44: KeyError
+_________________________ test_lineage_service_record _________________________
+
+mock_db_conn = <AsyncMock id='1987142214000'>
+
+    @pytest.mark.asyncio
+    async def test_lineage_service_record(mock_db_conn):
+        with patch('services.lineage_service.LineageService._get_db_connection', return_value=mock_db_conn):
+            service = LineageService()
+            run_id = str(uuid.uuid4())
+            source_id = str(uuid.uuid4())
+            target_id = str(uuid.uuid4())
+    
+>           await service.record_lineage(run_id, source_id, target_id)
+
+tests\test_services.py:55: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <services.lineage_service.LineageService object at 0x000001CEAAEE0730>
+run_id = 'df5227c7-1f27-4db3-a62c-8a251e960a6b'
+source_node_id = '694db8f0-dca6-41ab-af5f-2459eda3ae3e'
+target_node_id = 'e919fda2-f69c-43f1-8198-3e13aa6e2702', metadata = {}
+
+    async def record_lineage(self, run_id: str, source_node_id: str, target_node_id: str, metadata: Dict[str, Any] = {}):
+        """Records a lineage link between a source and a target for a specific run."""
+        conn = await self._get_db_connection()
+        try:
+            await conn.execute(
+                "INSERT INTO data_lineage (run_id, source_node_id, target_node_id, metadata) "
+                "VALUES ($1, $2, $3, $4)",
+                uuid.UUID(run_id), uuid.UUID(source_node_id), uuid.UUID(target_node_id),
+>               asyncpg.json.dumps(metadata)
+            )
+E           AttributeError: module 'asyncpg' has no attribute 'json'
+
+services\lineage_service.py:22: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/test_services.py::test_analytics_service_trends - KeyError: 'met...
+FAILED tests/test_services.py::test_lineage_service_record - AttributeError: ...
+========================= 2 failed, 3 passed in 0.49s =========================

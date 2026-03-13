@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import MetricCard from "@/components/MetricCard";
 import StatusBadge from "@/components/StatusBadge";
-import { Activity, CheckCircle, XCircle, Clock, Plus, GitBranch } from "lucide-react";
+import { Activity, CheckCircle, XCircle, Clock, Plus, GitBranch, Shield } from "lucide-react";
 import DashboardSkeleton from "@/components/DashboardSkeleton";
+import { OnboardingWizard } from "@/components/OnboardingWizard";
 import { cn } from "@/lib/utils";
 import { usePipelines } from "@/hooks/use-pipelines";
 import { usePipelineRuns } from "@/hooks/use-executions";
@@ -13,6 +14,7 @@ import { useMemo } from "react";
 const Dashboard = () => {
   const navigate = useNavigate();
   const [timeRange, setTimeRange] = useState<"24h" | "7d" | "30d">("24h");
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
 
   const { data: pipelines = [], isLoading: pipelinesLoading } = usePipelines();
   const { data: connections = [] } = useConnections();
@@ -100,17 +102,18 @@ const Dashboard = () => {
           </div>
           <h3 className="text-sm font-display font-semibold text-foreground">No pipelines yet</h3>
           <p className="text-xs text-muted-foreground mt-1 max-w-sm">Create your first pipeline to see metrics here.</p>
-          <button onClick={() => navigate("/pipelines")} className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors">
-            <Plus className="w-3.5 h-3.5" /> Create Pipeline
+          <button onClick={() => setIsWizardOpen(true)} className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors">
+            <Plus className="w-3.5 h-3.5" /> Start Guided Setup
           </button>
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <MetricCard title="Active Pipelines" value={pipelines.filter((p) => p.status === "active").length} subtitle={`${pipelines.length} total`} icon={Activity} variant="primary" />
             <MetricCard title="Success Rate" value={successRate} subtitle={`${filteredRuns.length} runs`} icon={CheckCircle} variant="success" />
             <MetricCard title="Failed Runs" value={failedRuns} subtitle={timeRange} icon={XCircle} variant="destructive" />
             <MetricCard title="Avg Latency" value={avgLatency} subtitle="Completed runs" icon={Clock} variant="default" />
+            <MetricCard title="SLA Health" value="98.2%" subtitle="2 breaches" icon={Shield} variant="primary" />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -170,6 +173,8 @@ const Dashboard = () => {
           </div>
         </>
       )}
+
+      <OnboardingWizard isOpen={isWizardOpen} onClose={() => setIsWizardOpen(false)} />
     </div>
   );
 };

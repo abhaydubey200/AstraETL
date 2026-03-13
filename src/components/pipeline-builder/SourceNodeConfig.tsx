@@ -1,7 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { BuilderNode } from "./types";
-import { useConnections, useSchemaDiscovery, SchemaTable } from "@/hooks/use-connections";
-import { Database, Code, Table, Loader2, ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
+import { useConnections } from "@/hooks/use-connections";
+import { Table, Code, FileText, Database, ChevronDown, Eye } from "lucide-react";
+import ResourcePicker from "./ResourcePicker";
+import DataPreview from "./DataPreview";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   node: BuilderNode;
@@ -9,42 +12,32 @@ interface Props {
 }
 
 export default function SourceNodeConfig({ node, onUpdate }: Props) {
-  const { data: connections = [], isLoading: loadingConns } = useConnections();
-  const schemaDiscovery = useSchemaDiscovery();
-  const [mode, setMode] = useState<"table" | "query">(node.config.source_mode as any || "table");
-  const [tables, setTables] = useState<SchemaTable[]>([]);
-  const [expandedTable, setExpandedTable] = useState<string | null>(null);
-  const [password, setPassword] = useState("");
-  const [schemaLoaded, setSchemaLoaded] = useState(false);
+  const { data: connections = [] } = useConnections();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [mode, setMode] = useState<"table" | "query" | "file">(node.config.source_mode as any || "table");
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const selectedConnectionId = node.config.connection_id || "";
+  const selectedConnection = connections.find(c => c.id === selectedConnectionId);
+  
   const selectedTable = node.config.source_table || "";
   const selectedSchema = node.config.source_schema || "";
+  const selectedDatabase = node.config.source_database || "";
+  const selectedWarehouse = node.config.source_warehouse || "";
+  
   const sqlQuery = node.config.sql_query || "";
+  const filePath = node.config.file_path || "";
+  const storageBucket = node.config.storage_bucket || "";
+  const fileFormat = node.config.file_format || "csv";
 
-  const updateConfig = (updates: Record<string, string>) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateConfig = (updates: Record<string, any>) => {
     onUpdate(node.id, { config: { ...node.config, ...updates } });
   };
 
-  const handleDiscoverSchema = async () => {
-    if (!selectedConnectionId || !password) return;
-    try {
-      const result = await schemaDiscovery.mutateAsync({ connection_id: selectedConnectionId, password });
-      if (result.tables) {
-        setTables(result.tables);
-        setSchemaLoaded(true);
-      }
-    } catch {
-      // error handled by mutation
-    }
-  };
-
-  // Reset schema when connection changes
-  useEffect(() => {
-    setTables([]);
-    setSchemaLoaded(false);
-    setPassword("");
-  }, [selectedConnectionId]);
+  const selectedPath = selectedTable 
+    ? `${selectedWarehouse ? `${selectedWarehouse}.` : ""}${selectedDatabase}.${selectedSchema}.${selectedTable}`
+    : undefined;
 
   return (
     <div className="space-y-3">
@@ -66,137 +59,124 @@ export default function SourceNodeConfig({ node, onUpdate }: Props) {
               mode === "query" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Code className="w-3 h-3" /> SQL Query
+            <Code className="w-3 h-3" /> Query
+          </button>
+          <button
+            onClick={() => { setMode("file"); updateConfig({ source_mode: "file" }); }}
+            className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded text-[10px] font-medium transition-colors ${
+              mode === "file" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <FileText className="w-3 h-3" /> File
           </button>
         </div>
       </div>
 
-      {/* Connection Picker */}
-      <div>
-        <label className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Source Connection</label>
-        {loadingConns ? (
-          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-            <Loader2 className="w-3 h-3 animate-spin" /> Loading...
-          </div>
-        ) : (
-          <select
-            value={selectedConnectionId}
-            onChange={(e) => {
-              updateConfig({ connection_id: e.target.value, source_table: "", source_schema: "", source_columns: "" });
-            }}
-            className="w-full px-2.5 py-1.5 rounded-md border border-input bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-          >
-            <option value="">Select connection...</option>
-            {connections.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} ({c.type})
-              </option>
-            ))}
-          </select>
-        )}
-      </div>
-
-      {mode === "table" && selectedConnectionId && (
+      {mode !== "file" && (
         <>
-          {/* Password for schema discovery */}
-          {!schemaLoaded && (
-            <div className="space-y-1.5">
-              <label className="text-[10px] text-muted-foreground uppercase tracking-wider block">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password to browse tables..."
-                className="w-full px-2.5 py-1.5 rounded-md border border-input bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                Bridge Node
+              </label>
+              <div className="relative group">
+                <Database className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 group-focus-within:text-primary transition-colors" />
+                <select
+                  value={selectedConnectionId}
+                  onChange={(e) => updateConfig({ 
+                    connection_id: e.target.value,
+                    source_warehouse: "",
+                    source_database: "",
+                    source_schema: "",
+                    source_table: "" 
+                  })}
+                  className="w-full pl-9 pr-4 h-10 rounded-xl border border-border/50 bg-muted/20 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-primary/30 transition-all appearance-none cursor-pointer"
+                >
+                  <option value="">Select Connection...</option>
+                  {connections.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+               <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                  Select Entity
+               </label>
+               <ResourcePicker
+                  connection={selectedConnection || null}
+                  selectedPath={selectedPath}
+                  onSelect={(path) => {
+                    updateConfig({
+                      source_warehouse: path.warehouse,
+                      source_database: path.database,
+                      source_schema: path.schema,
+                      source_table: path.table,
+                      source_columns: path.columns
+                    });
+                  }}
+                  disabled={!selectedConnectionId}
+               />
+            </div>
+          </div>
+
+          {mode === "query" && selectedConnectionId && (
+            <div className="pt-2">
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">SQL Query</label>
+              <textarea
+                value={sqlQuery}
+                onChange={(e) => updateConfig({ sql_query: e.target.value })}
+                placeholder="SELECT * FROM schema.table WHERE ..."
+                rows={5}
+                className="w-full px-2.5 py-1.5 rounded-md border border-input bg-background text-xs text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-ring resize-none"
               />
-              <button
-                onClick={handleDiscoverSchema}
-                disabled={!password || schemaDiscovery.isPending}
-                className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded-md bg-primary text-primary-foreground text-[10px] font-medium disabled:opacity-50 hover:bg-primary/90 transition-colors"
-              >
-                {schemaDiscovery.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Database className="w-3 h-3" />}
-                Browse Tables
-              </button>
-            </div>
-          )}
-
-          {/* Table List */}
-          {schemaLoaded && tables.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Tables ({tables.length})</label>
-                <button onClick={() => { setSchemaLoaded(false); setTables([]); }} className="p-0.5 rounded hover:bg-muted text-muted-foreground">
-                  <RefreshCw className="w-2.5 h-2.5" />
-                </button>
-              </div>
-              <div className="max-h-40 overflow-y-auto border border-input rounded-md bg-background">
-                {tables.map((t) => {
-                  const tableKey = `${t.schema_name}.${t.table_name}`;
-                  const isSelected = selectedTable === t.table_name && selectedSchema === t.schema_name;
-                  const isExpanded = expandedTable === tableKey;
-                  return (
-                    <div key={tableKey}>
-                      <button
-                        onClick={() => {
-                          updateConfig({
-                            source_table: t.table_name,
-                            source_schema: t.schema_name,
-                            source_columns: JSON.stringify(t.columns),
-                          });
-                          setExpandedTable(isExpanded ? null : tableKey);
-                        }}
-                        className={`w-full flex items-center gap-1 px-2 py-1 text-[10px] text-left hover:bg-muted/50 transition-colors ${
-                          isSelected ? "bg-primary/10 text-primary font-medium" : "text-foreground"
-                        }`}
-                      >
-                        {isExpanded ? <ChevronDown className="w-2.5 h-2.5 shrink-0" /> : <ChevronRight className="w-2.5 h-2.5 shrink-0" />}
-                        <Table className="w-2.5 h-2.5 shrink-0" />
-                        <span className="truncate">{t.schema_name}.{t.table_name}</span>
-                        <span className="ml-auto text-muted-foreground shrink-0">~{t.row_count_estimate}</span>
-                      </button>
-                      {isExpanded && (
-                        <div className="pl-6 pb-1 space-y-0.5">
-                          {t.columns.map((col) => (
-                            <div key={col.name} className="flex items-center gap-1 text-[9px] text-muted-foreground">
-                              <span className={col.is_primary_key ? "text-warning font-medium" : ""}>{col.name}</span>
-                              <span className="text-muted-foreground/60">{col.data_type}</span>
-                              {col.is_primary_key && <span className="text-[8px] text-warning">PK</span>}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Selected Table Display */}
-          {selectedTable && (
-            <div className="p-2 rounded-md bg-success/10 border border-success/20">
-              <p className="text-[10px] font-medium text-success">✓ Selected: {selectedSchema}.{selectedTable}</p>
+              <p className="text-[9px] text-muted-foreground mt-0.5">Enter the extraction query. Use parameterized filters for incremental loads.</p>
             </div>
           )}
         </>
       )}
 
-      {mode === "query" && selectedConnectionId && (
-        <div>
-          <label className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">SQL Query</label>
-          <textarea
-            value={sqlQuery}
-            onChange={(e) => updateConfig({ sql_query: e.target.value })}
-            placeholder="SELECT * FROM schema.table WHERE ..."
-            rows={5}
-            className="w-full px-2.5 py-1.5 rounded-md border border-input bg-background text-xs text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-ring resize-none"
-          />
-          <p className="text-[9px] text-muted-foreground mt-0.5">Enter the extraction query. Use parameterized filters for incremental loads.</p>
+      {mode === "file" && (
+        <div className="space-y-3">
+          <div>
+            <label className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Storage Bucket</label>
+            <input
+              type="text"
+              value={storageBucket}
+              onChange={(e) => updateConfig({ storage_bucket: e.target.value })}
+              placeholder="e.g. raw-data-bucket"
+              className="w-full px-2.5 py-1.5 rounded-md border border-input bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">File Path</label>
+            <input
+              type="text"
+              value={filePath}
+              onChange={(e) => updateConfig({ file_path: e.target.value })}
+              placeholder="e.g. path/to/file.csv"
+              className="w-full px-2.5 py-1.5 rounded-md border border-input bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">File Format</label>
+            <select
+              value={fileFormat}
+              onChange={(e) => updateConfig({ file_format: e.target.value })}
+              className="w-full px-2.5 py-1.5 rounded-md border border-input bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              <option value="csv">CSV</option>
+              <option value="json">JSON</option>
+              <option value="parquet">Parquet</option>
+            </select>
+          </div>
         </div>
       )}
 
       {/* Extraction Type */}
-      {selectedConnectionId && (selectedTable || sqlQuery) && (
+      {(mode === "file" || (selectedConnectionId && (selectedTable || sqlQuery))) && (
         <div>
           <label className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Load Type</label>
           <select
@@ -209,6 +189,31 @@ export default function SourceNodeConfig({ node, onUpdate }: Props) {
           </select>
         </div>
       )}
+
+      {selectedConnectionId && (selectedTable || sqlQuery) && (
+        <div className="pt-2">
+           <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setPreviewOpen(true)}
+            className="w-full h-10 rounded-xl gap-2 font-black text-[10px] uppercase tracking-widest border-primary/20 hover:bg-primary/5 text-primary"
+           >
+             <Eye className="w-4 h-4" /> Preview Data Sample
+           </Button>
+        </div>
+      )}
+
+      <DataPreview
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        title="Source Data Observation"
+        connectionId={selectedConnectionId}
+        warehouse={selectedWarehouse}
+        database={selectedDatabase}
+        schema={selectedSchema}
+        table={selectedTable}
+        sqlQuery={sqlQuery}
+      />
     </div>
   );
 }

@@ -1,8 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabaseUntyped as supabase } from "@/integrations/supabase/untyped-client";
+import { apiClient } from "@/lib/api-client";
+
 import type { PipelineRun, ExecutionLog, RunStatus, LogLevel } from "@/types/execution";
 
 const RUNS_KEY = ["pipeline_runs"];
+
 
 export interface RunFilters {
   pipelineId?: string;
@@ -13,35 +15,20 @@ export interface RunFilters {
 
 export function usePipelineRuns(filters?: RunFilters) {
   return useQuery<PipelineRun[]>({
-    queryKey: [...RUNS_KEY, filters],
+    queryKey: [RUNS_KEY, filters],
+    queryFn: async () => {
+      const queryFilters: Record<string, any> = {};
+      if (filters?.pipelineId) queryFilters.pipeline_id = filters.pipelineId;
+      if (filters?.status) queryFilters.status = filters.status;
+      if (filters?.from) queryFilters.from = filters.from;
+      if (filters?.to) queryFilters.to = filters.to;
+
+      return apiClient.get<PipelineRun[]>("/pipelines/runs", queryFilters);
+    },
     refetchInterval: (query) => {
-      // Auto-refetch every 3s if any run is still "running"
       const data = query.state.data;
       if (data && data.some((r) => r.status === "running")) return 3000;
       return false;
-    },
-    queryFn: async () => {
-      let query = supabase
-        .from("pipeline_runs")
-        .select("*")
-        .order("start_time", { ascending: false });
-
-      if (filters?.pipelineId) {
-        query = query.eq("pipeline_id", filters.pipelineId);
-      }
-      if (filters?.status) {
-        query = query.eq("status", filters.status);
-      }
-      if (filters?.from) {
-        query = query.gte("start_time", filters.from);
-      }
-      if (filters?.to) {
-        query = query.lte("start_time", filters.to);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return (data as PipelineRun[]) ?? [];
     },
   });
 }
@@ -51,19 +38,29 @@ export function usePipelineRun(runId: string | undefined) {
     queryKey: ["pipeline_runs", runId],
     enabled: !!runId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("pipeline_runs")
-        .select("*")
-        .eq("id", runId!)
-        .single();
-      if (error) throw error;
-      return data as PipelineRun;
+      return apiClient.get<PipelineRun>(`/pipelines/runs/${runId}`);
+    },
+  });
+}
+
+
+export function useWorkerJobs(runId?: string) {
+  return useQuery({
+    queryKey: ["worker_jobs", runId],
+    enabled: !!runId,
+    queryFn: async () => {
+      return apiClient.get<any[]>(`/pipelines/runs/${runId}/worker-jobs`);
+    },
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (data && data.some((r: any) => r.status === "pending" || r.status === "processing")) return 2000;
+      return false;
     },
   });
 }
 
 export interface LogFilters {
-  runId: string;
+  runId?: string;
   stage?: string;
   logLevel?: LogLevel;
   search?: string;
@@ -74,43 +71,28 @@ export function useExecutionLogs(filters: LogFilters) {
     queryKey: ["execution_logs", filters],
     enabled: !!filters.runId,
     queryFn: async () => {
-      let query = supabase
-        .from("execution_logs")
-        .select("*")
-        .eq("run_id", filters.runId)
-        .order("timestamp", { ascending: true });
+      const queryFilters: Record<string, any> = {};
+      if (filters.stage) queryFilters.stage = filters.stage;
+      if (filters.logLevel) queryFilters.log_level = filters.logLevel;
+      if (filters.search) queryFilters.search = filters.search;
 
-      if (filters.stage) {
-        query = query.eq("stage", filters.stage);
-      }
-      if (filters.logLevel) {
-        query = query.eq("log_level", filters.logLevel);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-
-      let logs = (data as ExecutionLog[]) ?? [];
-
-      if (filters.search) {
-        const term = filters.search.toLowerCase();
-        logs = logs.filter((l) => l.message.toLowerCase().includes(term));
-      }
-
-      return logs;
+      return apiClient.get<ExecutionLog[]>(`/pipelines/runs/${filters.runId}/logs`, queryFilters);
     },
+    refetchInterval: 3000
   });
 }
 
+
+
 export function useTriggerRun() {
+
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ pipelineId, userId }: { pipelineId: string; userId?: string }) => {
-      const { data, error } = await supabase.functions.invoke("simulate-run", {
-        body: { pipeline_id: pipelineId, user_id: userId },
-      });
-      if (error) throw error;
-      return data as { run_id: string; status: string; rows_processed: number };
+    mutationFn: async ({ pipelineId }: { pipelineId: string; userId?: string }) => {
+      // In the new backend, we trigger via the pipeline run endpoint
+      // We might need to pass source/destination if they are not stored, but for now 
+      // let's assume the backend retrieves them by DB lookup.
+      return apiClient.post<{ run_id: string; status: string; rows_processed: number }>(`/pipelines/${pipelineId}/run`, {});
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: RUNS_KEY });
@@ -119,3 +101,37 @@ export function useTriggerRun() {
     },
   });
 }
+
+
+export function useSystemMetrics(metricName?: string) {
+  return useQuery({
+    queryKey: ["system_metrics", metricName],
+    queryFn: async () => {
+      const queryFilters: Record<string, any> = {};
+      if (metricName) queryFilters.metric_name = metricName;
+      return apiClient.get<any[]>("/monitoring/metrics", queryFilters);
+    },
+    refetchInterval: 5000
+  });
+}
+
+export function useWorkerStatus() {
+  return useQuery<any[]>({
+    queryKey: ["worker_status"],
+    queryFn: async () => {
+      return apiClient.get<any[]>("/monitoring/worker-status");
+    },
+    refetchInterval: 5000,
+  });
+}
+
+export function useQueueMetrics() {
+  return useQuery<{ pending: number, processing: number, failed: number, completed: number }>({
+    queryKey: ["queue_metrics"],
+    queryFn: async () => {
+      return apiClient.get<any>("/monitoring/queue-metrics");
+    },
+    refetchInterval: 5000,
+  });
+}
+

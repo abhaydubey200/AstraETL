@@ -2,6 +2,21 @@ export type ConnectionType = "mssql" | "mysql" | "postgresql" | "snowflake";
 
 export type ConnectionStatus = "connected" | "disconnected" | "error" | "testing";
 
+export interface ConnectionCapabilities {
+  supports_cdc: boolean;
+  supports_incremental: boolean;
+  supports_parallel_reads: boolean;
+  supports_transactions: boolean;
+  max_connections: number;
+}
+
+export interface ConnectionPerformance {
+  avg_latency_ms: number;
+  avg_query_time_ms: number;
+  requests_per_minute: number;
+  error_rate: number;
+}
+
 export interface Connection {
   id: string;
   name: string;
@@ -9,9 +24,16 @@ export interface Connection {
   host: string;
   port: number;
   database_name: string;
+  schema_name?: string;
+  warehouse_name?: string;
   username: string;
   ssl_enabled: boolean;
   status: ConnectionStatus;
+  security_level: "standard" | "high";
+  capabilities?: ConnectionCapabilities;
+  performance?: ConnectionPerformance;
+  selected_tables: string[];
+  config: Record<string, any>;
   last_tested_at: string | null;
   created_by: string | null;
   created_at: string;
@@ -24,10 +46,15 @@ export interface ConnectionFormData {
   host: string;
   port: number;
   database_name: string;
+  schema_name?: string;
+  warehouse_name?: string;
   username: string;
   password: string;
   ssl_enabled: boolean;
+  security_level: "standard" | "high";
   timeout_seconds: number;
+  selected_tables?: string[];
+  config?: Record<string, any>;
 }
 
 export const CONNECTION_TYPE_LABELS: Record<ConnectionType, string> = {

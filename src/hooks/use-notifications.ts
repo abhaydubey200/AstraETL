@@ -1,7 +1,26 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
-import { supabaseUntyped as supabase } from "@/integrations/supabase/untyped-client";
 import { useAuth } from "@/components/AuthProvider";
+import { apiClient } from "@/lib/api-client";
+
+export function useMarkNotificationRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      return apiClient.post(`/monitoring/notifications/${id}/read`, {});
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: NOTIFICATIONS_KEY }),
+  });
+}
+
+export function useMarkAllRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      return apiClient.post("/monitoring/notifications/read-all", {});
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: NOTIFICATIONS_KEY }),
+  });
+}
 
 export interface Notification {
   id: string;
@@ -35,49 +54,15 @@ const ALERT_RULES_KEY = ["alert_rules"];
 
 export function useNotifications() {
   const { user } = useAuth();
-  const qc = useQueryClient();
 
-  const query = useQuery<Notification[]>({
+  return useQuery<Notification[]>({
     queryKey: NOTIFICATIONS_KEY,
     enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return (data as Notification[]) ?? [];
+      return apiClient.get<Notification[]>("/monitoring/notifications");
     },
+    refetchInterval: 30000, // Poll every 30s as fallback for realtime
   });
-
-  // Realtime subscription for new notifications
-  useEffect(() => {
-    if (!user) return;
-
-    const channel = supabase
-      .channel("notifications-realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          qc.invalidateQueries({ queryKey: NOTIFICATIONS_KEY });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, qc]);
-
-  return query;
 }
 
 export function useUnreadCount() {
@@ -85,46 +70,11 @@ export function useUnreadCount() {
   return notifications?.filter((n) => !n.read).length ?? 0;
 }
 
-export function useMarkNotificationRead() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("notifications")
-        .update({ read: true })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: NOTIFICATIONS_KEY }),
-  });
-}
-
-export function useMarkAllRead() {
-  const { user } = useAuth();
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase
-        .from("notifications")
-        .update({ read: true })
-        .eq("user_id", user!.id)
-        .eq("read", false);
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: NOTIFICATIONS_KEY }),
-  });
-}
-
 export function useAlertRules() {
   return useQuery<AlertRule[]>({
     queryKey: ALERT_RULES_KEY,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("alert_rules")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data as AlertRule[]) ?? [];
+      return apiClient.get<AlertRule[]>("/monitoring/alert-rules");
     },
   });
 }
@@ -133,13 +83,7 @@ export function useCreateAlertRule() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (rule: Omit<AlertRule, "id" | "created_at" | "updated_at">) => {
-      const { data, error } = await supabase
-        .from("alert_rules")
-        .insert(rule)
-        .select()
-        .single();
-      if (error) throw error;
-      return data as AlertRule;
+      return apiClient.post<AlertRule>("/monitoring/alert-rules", rule);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ALERT_RULES_KEY }),
   });
@@ -149,11 +93,7 @@ export function useToggleAlertRule() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
-      const { error } = await supabase
-        .from("alert_rules")
-        .update({ enabled })
-        .eq("id", id);
-      if (error) throw error;
+      return apiClient.put(`/monitoring/alert-rules/${id}`, { enabled });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ALERT_RULES_KEY }),
   });
@@ -163,11 +103,7 @@ export function useDeleteAlertRule() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("alert_rules")
-        .delete()
-        .eq("id", id);
-      if (error) throw error;
+      return apiClient.delete(`/monitoring/alert-rules/${id}`);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ALERT_RULES_KEY }),
   });
@@ -177,12 +113,9 @@ export function useUpdateAlertRule() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...updates }: { id: string; notify_email?: string | null }) => {
-      const { error } = await supabase
-        .from("alert_rules")
-        .update(updates)
-        .eq("id", id);
-      if (error) throw error;
+      return apiClient.put(`/monitoring/alert-rules/${id}`, updates);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ALERT_RULES_KEY }),
   });
 }
+

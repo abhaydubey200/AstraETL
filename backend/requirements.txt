@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+asyncpg
+python-dotenv
+snowflake-connector-python
+pandas
+pydantic
+pytest
+pytest-asyncio
+cryptography
+slowapi
+prometheus_client
+psycopg2-binary
+pymssql
+mysql-connector-python
+psutil
+httpx

@@ -45,6 +45,7 @@ const PipelineBuilder = ({ onBack, pipelineId, initialName, initialNodes, initia
   const handleSave = async () => {
     try {
       const mappedNodes = nodes.map((n, i) => ({
+        id: n.id,
         node_type: n.type as any,
         label: n.label,
         config_json: n.config as any,
@@ -53,25 +54,39 @@ const PipelineBuilder = ({ onBack, pipelineId, initialName, initialNodes, initia
         order_index: i,
       }));
 
+      const mappedEdges = edges.map((e) => ({
+        source_node_id: e.from,
+        target_node_id: e.to,
+      }));
+
+      const name = pipelineName.trim() || "Untitled Pipeline";
+
       if (pipelineId) {
-        await updatePipeline.mutateAsync({ id: pipelineId, name: pipelineName });
-        toast({ title: "Pipeline updated" });
+        await updatePipeline.mutateAsync({ 
+          id: pipelineId, 
+          name: name,
+          nodes: mappedNodes,
+          edges: mappedEdges,
+          execution_mode: 'DAG' // Set to DAG mode for Phase 3
+        } as any);
+        toast({ title: "Pipeline updated to DAG mode" });
       } else {
         await createPipeline.mutateAsync({
           pipeline: {
-            name: pipelineName,
+            name: name,
             description: null,
             status: "draft",
             schedule_type: "manual",
-            schedule_config: { edges } as any,
+            schedule_config: {} as any,
             created_by: null,
             last_run_at: null,
             next_run_at: null,
+            execution_mode: 'DAG'
           },
           nodes: mappedNodes,
-          edges: [],
+          edges: mappedEdges as any,
         });
-        toast({ title: "Pipeline saved" });
+        toast({ title: "Pipeline saved in DAG mode" });
         onBack();
       }
     } catch (err: any) {

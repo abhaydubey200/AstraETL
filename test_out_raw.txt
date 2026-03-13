@@ -1,0 +1,28 @@
+Traceback (most recent call last):
+  File "C:\Users\Abhay Dubey\Desktop\AstraFlow\crystal-flow-bridge\backend\test_error_handling.py", line 127, in main
+    await test_job_recovery()
+  File "C:\Users\Abhay Dubey\Desktop\AstraFlow\crystal-flow-bridge\backend\test_error_handling.py", line 56, in test_job_recovery
+    assert j["retry_count"] == 1
+AssertionError
+INFRA: asyncpg monkey-patched with MockDB for Pipelines.
+
+--- Testing Job Recovery (Stale Workers) ---
+Mock DB: execute -> insert into public.astra_worker_queue (pipeline_id, run_id, stage, payload, stat
+Mock DB: fetchrow -> select * from public.claim_next_worker_job()
+Job 0ce074df-717e-4200-8c0a-769dcb3c882f is now 'processing'
+Manually set job 0ce074df-717e-4200-8c0a-769dcb3c882f updated_at to 2026-03-13T10:36:32.340795
+Running recover_stale_jobs...
+Mock DB: fetch -> update public.astra_worker_queue
+                set status = 'pending',
+       
+Recovered 1 stale processing jobs.
+Mock DB: execute -> insert into public.failed_jobs (job_id, pipeline_id, run_id, stage, payload, err
+Mock DB: execute -> update public.astra_worker_queue
+                set status = 'failed'
+         
+DEBUG_DB: Flexible UPDATE astra_worker_queue. Query: update public.astra_worker_queue
+                set status = 'failed'
+                where status 
+Job 0ce074df-717e-4200-8c0a-769dcb3c882f status after recovery: pending (Expected: pending)
+Job 0ce074df-717e-4200-8c0a-769dcb3c882f retry_count: 5 (Expected: 1)
+TEST FAILED: 

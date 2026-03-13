@@ -15,3 +15,6 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     autoRefreshToken: true,
   }
 });
+
+// Alias for untyped access while maintaining a single instance/GoTrueClient
+export const supabaseUntyped = supabase as any;

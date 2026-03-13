@@ -1,0 +1,37 @@
+﻿.venv\Scripts\python : 
+Traceback (most recent 
+call last):
+At line:1 char:1
++ .venv\Scripts\python 
+backend/test_connectors
+.py 2>&1 | Out-File 
+-File ...
++ ~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (Traceback (mo   
+ st recent call las    
+t)::String) [], Re    
+moteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+  File "C:\Users\Abhay 
+Dubey\Desktop\AstraFlow
+\crystal-flow-bridge\ba
+ckend\test_connectors.p
+y", line 9, in <module>
+    from 
+core.mysql_connector 
+import MySqlConnector
+ImportError: cannot 
+import name 
+'MySqlConnector' from 
+'core.mysql_connector' 
+(C:\Users\Abhay Dubey\D
+esktop\AstraFlow\crysta
+l-flow-bridge\backend\c
+ore\mysql_connector.py)
