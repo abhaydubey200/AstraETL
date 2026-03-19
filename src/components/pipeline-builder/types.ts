@@ -9,6 +9,7 @@ export interface BuilderNode {
   x: number;
   y: number;
   config: Record<string, any>;
+  status?: "pending" | "running" | "success" | "failed";
 }
 
 export interface BuilderEdge {

@@ -1,0 +1,300 @@
+# Connection System PRD (Product Requirements Document)
+
+## 1. Product Overview
+The AstraFlow Connection System enables users to seamlessly link diverse, heterogeneous data sources (e.g., PostgreSQL, Snowflake, MySQL, APIs) into the platform. It provides a dynamic, schema-driven connection wizard featuring live capability detection, real-time diagnostic testing, and intelligent resource discovery.
+
+## 2. Target Audience
+Data Engineers, Analytics Engineers, and Systems Administrators who need a highly reliable, Airbyte-tier connection bridging system without writing configuration code or manually verifying ports.
+
+## 3. Core Objectives
+- **Zero-Friction Onboarding:** Users should authenticate to a database securely in under 60 seconds with guided UI and immediate error feedback.
+- **Dynamic Extensibility:** Adding a new connector (e.g., MongoDB) should not require UI changes. The frontend renders forms strictly based on the backend connector's JSON schema.
+- **Deep Visibility & Security:** Credentials must be vaulted, connections tested at multiple network layers (DNS, TCP, Auth), and performance/capabilities (CDC support) automatically profiled.
+- **Resource Discovery:** Eliminate manual table-name typing. Fetch schemas and tables directly from the source DB so the user can just check boxes.
+
+## 4. Key Workflows Summarized
+- **Source Selection Pipeline:** 1) Choose Source Image 2) Fill Dynamic Config 3) Test Connection (Diagnostic checks) 4) Discover Schemas & Tables 5) Configure Sync logic (CDC/Incremental) 6) Finalize.
+- **Live Health Monitoring:** Backend persistently updates `connection_performance` with active latency and latency history.
+
+## 5. Success Metrics
+- **Connection Success Rate:** 95% of users configure their connection without needing external troubleshooting documentation.
+- **Discovery Speed:** Schema/Table discovery completes in under 5 seconds.
+- **Security:** 100% of passwords stored off the primary application table (via Secret/Vault references).
+
+
+-----------------------------------------------------
+
+
+# Connection Features
+
+## 1. Form Generation & Discovery
+- **Schema-Driven UI:** Forms are generated automatically using JSON schemas provided by the `ConnectorRegistry`. No hardcoded input fields (except a few base ones).
+- **Intelligent Discovery:** Multi-layered metadata fetching. E.g., for Snowflake: Warehouses -> Databases -> Schemas -> Tables.
+
+## 2. Live Testing & Diagnostics
+- **Granular Health Checks:** When a user clicks "Test", the UI shows progressive checks:
+  1. DNS Resolution
+  2. TCP Connectivity (Port open check)
+  3. Authentication validation
+- **AI Troubleshooting:** If a test fails, `AIService.explain_failure` generates a human-readable recommendation (e.g., "Confirm port 5432 is whitelisted").
+
+## 3. Advanced Configuration
+- **Capabilities Detection:** The system automatically profiles the source database (e.g., does it support CDC? Transactions? Parallel reads?) and stores it in `connection_capabilities`.
+- **Sync Configuration Recommendations:** When exploring tables, the UI tags tables with "CDC" or "INCREMENTAL" based on primary key detection and connector capabilities.
+- **Live Data Preview:** Users can peek at the first 5 rows of a table directly from the setup wizard to ensure data integrity.
+
+## 4. Advanced Security & Performance Tracking
+- **Secret Vaulting:** Passwords are abstracted to a `SecretService` and replaced with a Vault reference string in the primary DB (`connection_credentials`).
+- **Telemetry:** The `ConnectionService` tracks `avg_latency_ms`, `error_rate`, and `requests_per_minute` dynamically via the `connection_performance` table.
+
+
+-----------------------------------------------------
+
+
+# Connection System UI/UX Analysis
+
+## 1. User Journey (Wizard Flow)
+The connection onboarding is an orchestrated wizard (`ConnectionWizard.tsx`), broken into discrete, focused steps:
+1. **Source Selection (`SourceSelectionPage`):** Visual grid of connector types (Postgres, Snowflake) categorized by type.
+2. **Config & Test (`ConnectionConfigPage`):** 
+   - Dynamically renders inputs for Host, Port, Username, Password.
+   - Separate "Advanced Settings" accordion.
+   - Sidebar displays live testing diagnostics. User runs the test, gets green checks for DNS/TCP/Auth, then proceeds.
+3. **Database/Warehouse Selection:** Select specific logical containers if required by the DB (e.g., Snowflake Warehouse -> Database).
+4. **Schema & Table Selection (`SchemaSelectionPage`):**
+   - Two-pane layout: Schemas on the left, Tables on the right.
+   - Tables list displays row counts, PK status, and recommended Sync method (CDC/Incremental).
+   - "Preview Data" eye icon pops up a modal of sample rows.
+5. **Sync Configuration:** The UI passes selected tables to a configuration pane to set frequency and map columns.
+6. **Finalize:** Assign a friendly UI display name and save.
+
+## 2. UX Complexity
+- **Low Friction:** Because the system uses schema discovery, the user barely types anything. They provide host/auth once, and the rest is point-and-click.
+- **Feedback Loops:** The progressive loading states (Spinners over TCP Handshake, DNS Resolution) give users immediate clarity if their VPC network is blocking AstraFlow rather than just throwing a generic "Timeout".
+
+## 3. Interaction Mechanics
+- React Hook Form / local state is passed along the wizard steps via URL parameters (`?source=xxx&config=encoded_json`) or parent component state (in Dialog variant).
+- "Data Preview" and "Table Filtering" happen instantly via React Query caching.
+
+
+-----------------------------------------------------
+
+
+# Connection System Tech Stack
+
+## 1. Frontend
+- **Framework:** React + TypeScript (Vite)
+- **Routing:** React Router DOM (Query parameters utilized heavily to pass config state between wizard pages).
+- **State & Data Fetching:** `@tanstack/react-query` handles API caching for connector schemas, tables, and test results.
+- **UI Components:** `shadcn/ui` (Tailwind + Radix). Notably intensive use of Card, Dialog, Table, Tooltip, and custom animations (`animate-in zoom-in`).
+
+## 2. Backend & APIs
+- **Framework:** FastAPI (Python)
+- **Core Abstraction:** `BaseConnector` defines the interface every DB must implement (`connect`, `disconnect`, `discover_schema`, `health_check`, `diagnose`).
+- **Dynamic Loading:** `ConnectorRegistry` registers Postgres, MySQL, Snowflake, MSSQL classes dynamically to API routes.
+- **Dependencies (`Depends`):** The `ConnectionService` is injected, providing DB pool access and bridging to `MetadataService`, `SecretService`, `CapabilityService`, and `AIService`.
+
+## 3. Database Layer
+- **PostgreSQL:** Handles relational metadata using specialized joined tables (`connections`, `connection_performance`, `connection_capabilities`, `connection_credentials`).
+
+## 4. Integrations
+- `pyodbc` / `asyncpg` / `snowflake-connector-python` handle raw data access.
+- `AIService` wraps an LLM call to translate raw TCP network errors or SQL Auth errors into human-readable advice.
+
+
+-----------------------------------------------------
+
+
+# Connection System Database Design
+
+## 1. Normalized Relational Structure
+The upgrade migrated from a monolithic JSONB column to a highly normalized, enterprise-grade schema layout.
+
+### `connections`
+The primary metadata table.
+- `id` (UUID, PK)
+- `name` (Text), `type` (Text)
+- `host` (Text), `port` (Int), `database_name` (Text)
+- `username` (Text)
+- `ssl_enabled` (Boolean)
+- `security_level` (Text, default 'standard')
+
+### `connection_credentials`
+Vault reference table (ensures passwords aren't accidentally selected in UI queries).
+- `connection_id` (FK)
+- `secret_ref` (Text) -- The reference to AWS Secrets Manager, HashiCorp Vault, or encrypted local key.
+
+### `connection_capabilities`
+Discovered features.
+- `supports_cdc` (Boolean)
+- `supports_incremental` (Boolean)
+- `supports_parallel_reads` (Boolean)
+- `supports_transactions` (Boolean)
+- `max_connections` (Int)
+
+### `connection_performance`
+Live telemetry tracked by the TaskExecutor and ConnectionService.
+- `avg_latency_ms` (Float)
+- `avg_query_time_ms` (Float)
+- `requests_per_minute` (Float)
+- `error_rate` (Float)
+
+### `sync_configs`
+Configured from the wizard's output. Links a table to an integration strategy.
+- `connection_id` (FK)
+- `table_name`, `schema_name`
+- `sync_mode` (Text: full_refresh, incremental, cdc)
+- `cursor_field`, `primary_key`
+- `selected_columns` (JSONB)
+
+## 2. Abstraction Strategy
+By tearing `credentials`, `performance`, and `capabilities` into separate tables, Row Level Security (RLS) policies can easily block developers/UI from querying passwords while still allowing the UI to pull performance charts.
+
+
+-----------------------------------------------------
+
+
+# Connection System API Analysis
+
+## 1. Endpoints (`/connections`)
+
+### Fetching Metadata
+- `GET /types`: Returns a dictionary mapping connector names (e.g., `snowflake`) to their JSON JSONSchema and default capabilities.
+- `GET /`: Lists paginated connections, left-joined with `connection_performance` and `connection_capabilities` for UI badging (Active/Failing/Latency).
+- `GET /{id}`: Returns a single connection's highly joined config data.
+- `GET /{id}/performance`: Fetch the latest capability and latency tracking.
+
+### Discovery & Testing
+- `POST /test`: Triggers `BaseConnector.diagnose()`. Returns granular results: `{ success: bool, latency_ms: int, diagnostics: { dns_resolution: str, tcp_connection: str, authentication: str } }`.
+- `POST /discover`: The primary metadata explorer. Takes an argument `target` (`warehouses`, `databases`, `schemas`, `tables`). Uses live connections to return string arrays or richly typed objects (for tables with PK information).
+- `POST /discover-schema`: A heavy legacy endpoint that pulls the entire layout at once. Returns tables with schema shapes mapped.
+- `POST /preview-data`: Connects matching the schema rules, runs a generated `SELECT * FROM tbl LIMIT 5`, and returns `{ data: [...], columns: [...] }`.
+
+### CRUD operations
+- `POST /`: Inserts records into `connections`, vaults passwords via `SecretService`, detects capabilities via `CapabilityService`, and persists user selections into `sync_configs`.
+- `PUT /{id}`: Updates name, host, DB properties. Updates vaulted secrets if a password is exchanged.
+- `DELETE /{id}`: Drops the connection. Postgres `ON DELETE CASCADE` handles orphaned configs and logs.
+
+## 2. Request/Response Paradigm
+- The UI strictly passes the *partial/tentative* JSON config to the backend during `/test` and `/discover`. The API instantiates ephemeral connector classes using these dictionaries, runs the operation, and disconnects.
+- This creates true "Draft" testing without dirtying the database. Nothing is saved until `POST /`.
+
+
+-----------------------------------------------------
+
+
+# Connection System Architecture
+
+## 1. Architectural Map
+
+`UI (React) -> API Router (FastAPI) -> ConnectionService (Manager) -> ConnectorRegistry (Factory) -> Specific Connector (Worker) -> Database/Network`
+
+### Layer 1: Frontend Router & URL State
+The connection wizard heavily uses React Router query parameters. This allows users to refresh the page during a 6-step wizard and keep their drafted configuration (e.g., `?source=postgres&config={"host":"..."}`).
+
+### Layer 2: API Gateway (`connection_router.py`)
+All REST traffic routes here. Simple dependency injection (`Depends(get_connection_service)`) wires in the core business logic.
+
+### Layer 3: Service Layer (`connection_service.py`)
+This is the god-class coordinator for Connections. It:
+- Reads/writes to the PostgreSQL metadata DB.
+- Delegates secret storage to `SecretService`.
+- Delegates AI translations to `AIService`.
+- Delegates capability checks to `CapabilityService`.
+- Requests actual connections via `ConnectorRegistry`.
+
+### Layer 4: Abstraction Engine (`connector_registry.py`)
+Provides dynamic class-loading. `ConnectorRegistry.get_connector_class("snowflake")` returns the `SnowflakeConnector` class, which implements the universal `BaseConnector` interface.
+
+### Layer 5: Data Integration Layer (`*_connector.py`)
+These files (`postgres_connector.py`, `mysql_connector.py`, etc.) wrap low-level async drivers like `asyncpg`. They standardize the chaos of different database drivers into universal `connect()`, `disconnect()`, `health_check()`, and `discover_schema()` methods.
+
+
+-----------------------------------------------------
+
+
+# Connection Connector System
+
+## 1. Connector Interface (`BaseConnector`)
+Every new integration must inherit from `BaseConnector`. This establishes an Airbyte-like standardization internally.
+
+### Required Methods
+- `connect()`: Asynchronously establish the driver connection.
+- `disconnect()`: Teardown the pool or session cleanly.
+- `health_check()`: Fast bool return if the connection is alive.
+- `diagnose()`: Granular network check returning {dns, tcp, auth}.
+- `discover_schema()`: Return standard AstraFlow table mappings.
+- `@classmethod get_config_schema()`: Returns a JSONSchema defining exactly what the UI should render (e.g., Host input, Boolean SSL toggle).
+- `@classmethod get_capabilities()`: Returns flags marking CDC/Incremental/Transaction support.
+
+## 2. Dynamic Registration
+Adding a new connector does NOT require editing the UI or API routes.
+1. Create `mongo_connector.py`.
+2. Inherit `BaseConnector`.
+3. Provide the JSONSchema in `get_config_schema()`.
+4. Register it in `ConnectorRegistry._connectors`.
+Result: The React UI hits `/connections/types` on load, automatically sees `mongodb`, and instantly generates the wizard form for MongoDB based purely on the backend's provided types.
+
+## 3. Supported Core Types
+- `PostgresConnector` (Using `asyncpg`)
+- `SnowflakeConnector` (Using `snowflake-connector-python`)
+- `MSSQLConnector` (Using `pyodbc` / `aioodbc`)
+- `MySQLConnector` (Using standard async mysql drivers)
+
+
+-----------------------------------------------------
+
+
+# Connection Testing System
+
+## 1. Deep Diagnostics Workflow
+
+The "Test Connection" button does not just run a generic "ping". It executes `BaseConnector.diagnose()`.
+
+### The Three Pillars
+1. **DNS Resolution Check:** Uses Python's `socket.gethostbyname()`. If it fails, the domain doesn't exist or AstraFlow's internal DNS is failing.
+2. **TCP Connectivity Check:** Uses `socket.create_connection((host, port))`. If it fails, the port is firewalled, blocked, or not listening, but the host exists.
+3. **Authentication Check:** Actually attempts to bind the username/password using the database driver's auth protocol.
+
+## 2. Frontend Visualization
+The `ConnectionConfigPage` UI tracks these state machines.
+- It displays a vertical list (DNS Resolution, TCP Handshake, Authentication).
+- As the API returns, it spins spinners or sets green checks (`success`) vs red crosses (`error`).
+- **User Education:** Fast feedback. Example: Instead of "Operation Timed Out" after 60 seconds, the user sees "DNS: OK, TCP: FAILED", instantly pointing them toward a firewall blocking issue.
+
+## 3. AI Troubleshooting
+If `diagnose()` detects a failure in step 2 or 3, `ConnectionService` bundles the raw driver stack trace (e.g., "ECONNREFUSED" or "invalid password for user X") and sends it to the `AIService`.
+The AI returns a human-readable recommendation injected into the `testResult.suggestion` field payload, displayed dramatically in the UI (e.g., "Check if your DB requires AWS VPC peering enabled.").
+
+
+-----------------------------------------------------
+
+
+# Connection Gap Analysis (vs. Industry Standards)
+
+## Current System vs. Airbyte
+
+### The Strengths
+- **Dynamic UX/UI:** Superior to generic basic form builders. The progressive disclosure (testing networks -> selecting schemas -> configuring syncs) is highly polished.
+- **Deep Diagnostics:** Exposing DNS/TCP/Auth breakdown directly to the UI surpasses basic Airbyte "Check Failed" errors.
+
+### 1. External Vault Capabilities
+- **Current System:** Uses `SecretService` as a lightweight abstraction, mostly encrypting local strings.
+- **Gap:** True enterprise deployments require direct HashiCorp Vault, AWS Secrets Manager, or GCP Secret Manager bindings. The abstraction exists, but the enterprise integrations are mock/stubbed.
+
+### 2. Oauth 2.0 Web Flows
+- **Current System:** Purely credential-based (Username / Password / Host).
+- **Gap:** Integrating with SaaS applications (Salesforce, Google Analytics, Shopify) requires an Oauth2 callback flow. The current JSONSchema rendering doesn't easily support a "Click Here to Login with Google" redirect loop.
+
+### 3. Connector Ecosystem Maturity
+- **Current System:** Core 4 databases are rigidly supported.
+- **Gap:** To scale to 200+ connectors, AstraFlow should adopt the Singer protocol or Airbyte's containerized standard input/output models, rather than extending Python `BaseConnector` for everything.
+
+### 4. Connection Network Tunnels
+- **Current System:** Assumes direct TCP line-of-sight to the DB.
+- **Gap:** Missing SSH Tunnel / Bastion Host configuration steps. Most enterprise DBs are not public to the internet; they require SSH key uploads and bastion routing natively integrated in the Connection UI.
+
+
+-----------------------------------------------------
+
+

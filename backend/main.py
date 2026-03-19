@@ -5,8 +5,11 @@ import os
 import asyncio
 from dotenv import load_dotenv
 
+load_dotenv()
+
 # Stabilization: Allow Mock DB for testing/validation if real DB is unreachable
 if os.getenv("USE_MOCK_DB") == "true":
+
     try:
         import mock_db
     except ImportError:
@@ -58,11 +61,19 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Global Error Handler: Catch unhandled exceptions to prevent leaking server details
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     error_msg = str(exc)
     logger.error(f"UNHANDLED ERROR: {error_msg} on {request.url.path}")
+    
+    # Global Error Handler: Catch unhandled exceptions to prevent leaking server details
+    import traceback
+    with open("error_trace.log", "a") as f:
+        from datetime import datetime
+        f.write(f"\n--- {datetime.utcnow()} ---\n")
+        f.write(f"URL: {request.url}\n")
+        f.write(traceback.format_exc())
+        f.write("-" * 40 + "\n")
     
     # Trigger self-healing
     asyncio.create_task(self_healing_manager.diagnose_and_fix(error_msg, context=f"api:{request.url.path}"))
@@ -117,8 +128,22 @@ async def startup_event():
                 print(f"Worker Loop Error: {e}")
                 await asyncio.sleep(5)
     
+    async def job_worker_loop():
+        while True:
+            try:
+                job = await worker.claim_job()
+                if job:
+                    await worker.process_job(job)
+                else:
+                    await asyncio.sleep(2)
+            except Exception as e:
+                print(f"Job Worker Loop Error: {e}")
+                await asyncio.sleep(5)
+    
     asyncio.create_task(worker_loop())
+    asyncio.create_task(job_worker_loop())
     print("INFRA: DAG Scheduler and Worker loops started.")
+
 
     # Start autonomous validation loop
     await canary_manager.start()

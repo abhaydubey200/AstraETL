@@ -73,13 +73,17 @@ export default function ResourcePicker({
         } else if (type === "database") {
           target = "schemas";
           params.database_name = label;
-          if (parentId && parentId.startsWith('warehouse:')) {
-            params.warehouse_name = parentId.split(':')[1];
+          const whPart = parentId?.split('-').find(p => p.startsWith('warehouse:'));
+          if (whPart) {
+            params.warehouse_name = whPart.split(':')[1];
           }
         } else if (type === "schema") {
           target = "tables";
           params.schema_name = label;
-          params.database_name = parentId?.split(':')[1];
+          const dbPart = parentId?.split('-').find(p => p.startsWith('database:'));
+          if (dbPart) {
+            params.database_name = dbPart.split(':')[1];
+          }
         }
 
         const { results } = await resourceDiscovery.mutateAsync({
@@ -106,11 +110,13 @@ export default function ResourcePicker({
     setOpen(false);
   };
 
-  const renderNode = (label: string, type: "warehouse" | "database" | "schema" | "table", depth: number, parentId?: string) => {
+  const renderNode = (nodeData: any, type: "warehouse" | "database" | "schema" | "table", depth: number, parentId?: string) => {
+    const label = typeof nodeData === "string" ? nodeData : nodeData.name;
     const nodeId = `${type}:${label}${parentId ? `-${parentId}` : ""}`;
     const isOpen = !!expanded[nodeId];
     const isLoading = !!loadingNodes[nodeId];
     const children = treeContent[nodeId] || [];
+    const recommendation = typeof nodeData !== "string" ? nodeData.recommendation : null;
 
     const Icon = {
       warehouse: HardDrive,
@@ -126,14 +132,11 @@ export default function ResourcePicker({
         <div 
           onClick={() => {
             if (type === "table") {
-              // Extract hierarchy from parent chain (simplified for this demo)
               const parts = nodeId.split('-');
               let schemaName = "";
               let dbName = "";
               let whName = "";
 
-              // We reconstruct from the parentId string which we built as `type:label-parentId`
-              // A more robust way would be passing the context down, but this works for the depth
               parts.forEach(p => {
                 if (p.startsWith('schema:')) schemaName = p.split(':')[1];
                 if (p.startsWith('database:')) dbName = p.split(':')[1];
@@ -146,24 +149,36 @@ export default function ResourcePicker({
             }
           }}
           className={cn(
-            "flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors text-[11px]",
+            "flex items-center justify-between group px-2 py-1.5 rounded-md cursor-pointer transition-colors text-[11px]",
             isOpen ? "bg-primary/5 text-foreground" : "hover:bg-muted text-muted-foreground"
           )}
           style={{ paddingLeft: `${depth * 12 + 4}px` }}
         >
-          {type !== "table" ? (
-            <div className="w-3 h-3 flex items-center justify-center">
-              {isLoading ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : isOpen ? <ChevronDown className="w-2.5 h-2.5" /> : <ChevronRight className="w-2.5 h-2.5" />}
+          <div className="flex items-center gap-2 truncate">
+            {type !== "table" ? (
+              <div className="w-3 h-3 flex items-center justify-center">
+                {isLoading ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : isOpen ? <ChevronDown className="w-2.5 h-2.5" /> : <ChevronRight className="w-2.5 h-2.5" />}
+              </div>
+            ) : <div className="w-3" />}
+            
+            <Icon className={cn("w-3.5 h-3.5 shrink-0", (isOpen || type === "table") ? "text-primary" : "text-muted-foreground/50")} />
+            <span className={cn("truncate font-bold", type === "table" && "font-mono")}>{label}</span>
+          </div>
+
+          {recommendation && (
+            <div className={cn(
+              "px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter opacity-70 border border-current ml-2 shrink-0",
+              recommendation.mode === 'cdc' ? "text-cyan-500 bg-cyan-500/5" : 
+              recommendation.mode === 'incremental' ? "text-amber-500 bg-amber-500/5" : "text-muted-foreground bg-muted/5"
+            )}>
+              {recommendation.mode}
             </div>
-          ) : <div className="w-3" />}
-          
-          <Icon className={cn("w-3.5 h-3.5 shrink-0", (isOpen || type === "table") ? "text-primary" : "text-muted-foreground/50")} />
-          <span className={cn("truncate font-bold", type === "table" && "font-mono")}>{label}</span>
+          )}
         </div>
 
-        {isOpen && children.map(childLabel => {
+        {isOpen && children.map(childData => {
           const nextType: "warehouse" | "database" | "schema" | "table" = type === "warehouse" ? "database" : type === "database" ? "schema" : "table";
-          return renderNode(childLabel, nextType, depth + 1, nodeId);
+          return renderNode(childData, nextType, depth + 1, nodeId);
         })}
       </div>
     );

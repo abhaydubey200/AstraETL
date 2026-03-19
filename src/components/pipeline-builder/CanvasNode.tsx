@@ -30,9 +30,11 @@ const CanvasNode = memo(({ node, selected, zoom, onMouseDown, onClick, onPortDow
         <div
           className={cn(
             "w-full h-full rounded-lg border bg-card flex items-center gap-2.5 px-3 transition-all select-none",
-            selected
-              ? "border-primary shadow-md shadow-primary/20 ring-1 ring-primary/30"
-              : "border-border hover:border-muted-foreground/30"
+            selected ? "shadow-md shadow-primary/20 ring-1 ring-primary/30" : "hover:border-muted-foreground/30",
+            node.status === "running" ? "border-warning animate-pulse ring-1 ring-warning/30" :
+            node.status === "success" ? "border-success ring-1 ring-success/30" :
+            node.status === "failed" ? "border-destructive ring-1 ring-destructive/30" :
+            selected ? "border-primary" : "border-border"
           )}
         >
           <div className={cn("w-7 h-7 rounded-md flex items-center justify-center shrink-0", cfg.bg)}>

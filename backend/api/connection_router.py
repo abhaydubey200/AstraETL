@@ -67,9 +67,9 @@ async def test_connection(
     service: ConnectionService = Depends(get_connection_service)
 ):
     result = await service.test_connection(config)
-    if not result.get("success"):
-        raise HTTPException(status_code=400, detail=result.get("error", "Connection failed"))
+    # Always return 200 so the frontend/tester can see the diagnostic report
     return result
+
 
 @router.post("/discover-schema")
 async def discover_schema(

@@ -18,6 +18,7 @@ export interface Pipeline {
   updated_at: string;
   last_run_at: string | null;
   next_run_at: string | null;
+  execution_mode?: string;
 }
 
 export interface PipelineNode {

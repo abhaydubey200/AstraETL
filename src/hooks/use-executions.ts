@@ -59,6 +59,22 @@ export function useWorkerJobs(runId?: string) {
   });
 }
 
+export function useRunTasks(runId?: string) {
+  return useQuery({
+    queryKey: ["run_tasks", runId],
+    enabled: !!runId,
+    queryFn: async () => {
+      return apiClient.get<any[]>(`/pipelines/runs/${runId}/tasks`);
+    },
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (!data) return 2000;
+      if (data.some((t: any) => t.status === "pending" || t.status === "running")) return 2000;
+      return false;
+    },
+  });
+}
+
 export interface LogFilters {
   runId?: string;
   stage?: string;

@@ -74,7 +74,7 @@ async def get_run_logs(
     service: PipelineService = Depends(get_pipeline_service)
 ):
     """Fetch logs for a specific run."""
-    return await service.get_logs(run_id, {"stage": stage, "log_level": log_level})
+    return await service.get_run_logs(run_id, {"stage": stage, "log_level": log_level})
 
 @router.get("/{pipeline_id}", response_model=PipelineResponse)
 async def get_pipeline(
@@ -178,27 +178,20 @@ async def trigger_pipeline_run(
     run_record = await service.create_run(pipeline_id, "running")
     run_id = run_record["id"]
 
-    # In mock mode, execute the entire pipeline inline (no daemon needed)
+    # In mock mode, enqueue all stages (simulation)
     if os.getenv("USE_MOCK_DB") == "true":
         import asyncio
         stages = ["extract", "transform", "validate", "load"]
         for stage in stages:
-            job_id = await worker_service.enqueue_job(
+            await worker_service.enqueue_job(
                 pipeline_id=pipeline_id,
                 run_id=run_id,
                 stage=stage,
                 payload={"source": source_config or {}, "destination": dest_config or {}}
             )
-            # Simulate minimal delay per stage
-            await asyncio.sleep(0.1)
-        # Mark run as completed immediately
-        async with worker_service.pool.acquire() as conn:
-            await conn.execute(
-                "UPDATE public.pipeline_runs SET status = 'completed', finished_at = NOW() WHERE id = $1",
-                run_id
-            )
-        print(f"MOCK_ROUTER: Pipeline {pipeline_id} run {run_id} completed inline.")
-        return {"run_id": run_id, "status": "completed"}
+            # Just enqueue them all; the worker loop will pick them up
+        print(f"MOCK_ROUTER: Pipeline {pipeline_id} run {run_id} enqueued en-masse.")
+        return {"run_id": run_id, "status": "running"}
 
     # Production: enqueue just the first stage and let the daemon handle the rest
     if source_config and dest_config:

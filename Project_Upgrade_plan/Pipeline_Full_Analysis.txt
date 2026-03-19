@@ -1,0 +1,377 @@
+# Pipeline PRD (Product Requirements Document)
+
+## 1. Product Overview
+The AstraFlow Pipeline system provides a visual DAG (Directed Acyclic Graph) builder for users to design, configure, execute, and monitor data pipelines. It allows users to extract data from various source connections, apply SQL transformations and validations, and load data into destination systems like Snowflake.
+
+## 2. Target Audience
+Data Engineers, Analytics Engineers, and Systems Architects who need a reliable, visual, and code-optional way to move and transform data across heterogeneous systems.
+
+## 3. Core Objectives
+- **Visual Orchestration:** Provide a drag-and-drop canvas to build DAGs without writing orchestration code.
+- **Dynamic Configuration:** Allow configuring individual steps (extract, transform, validate, load) dynamically.
+- **Robust Execution:** Execute jobs reliably with state tracking, using a robust backend worker system.
+- **Observability:** Track runs, logs, and pipeline health comprehensively.
+
+## 4. Current Scope & Capabilities
+- **Canvas Builder:** React Flow-based UI to link nodes (Source, Transformation, Validation, Load).
+- **Multi-Source/Dest:** Support for Postgres, MSSQL, MySQL, Snowflake via Connector architecture.
+- **Execution Modes:** Full load or chunked/incremental loading with Parquet intermediate staging.
+- **Validation Engine:** Pre-flight connection validation and DAG circular-dependency detection.
+
+## 5. Success Metrics
+- **Job Reliability:** 99.9% pipeline success rate in production.
+- **Time to Value:** Users can create and test a new pipeline within 2 minutes.
+- **Observability Coverage:** 100% of pipeline failures have an actionable error log attached.
+
+
+-----------------------------------------------------
+
+
+# Pipeline Features
+
+## 1. Pipeline Management
+- **List & Grid Views:** View all pipelines with filtering (all, active, draft, error, inactive) and sorting (updated, name, created).
+- **Bulk Operations:** Select multiple pipelines for bulk deletion.
+- **Duplication:** Clone existing pipelines along with their node/edge configurations.
+- **Versioning:** Backend tracks `pipeline_versions` whenever a DAG configuration is updated.
+
+## 2. Visual DAG Builder
+- **Drag & Drop Canvas:** Built on React Flow. Supports panning, zooming, and node repositioning.
+- **Node Types:** 
+  - `Source` / `Extract`
+  - `Transform` / `SQL`
+  - `Validate` / `Validation`
+  - `Load` / `Destination`
+- **Node Configuration Inspector:** A side panel (Desktop) or bottom sheet (Mobile) to configure JSON properties specific to the selected node.
+- **Edge Connections:** Visual linking to dictate dependency and execution order.
+
+## 3. Validation & Pre-flight
+- **DAG Integrity:** Backend validation ensures no circular dependencies.
+- **Connection Health Checks:** Validates that selected source and destination connections are reachable before allowing execution.
+
+## 4. Execution & Orchestration
+- **Manual Trigger:** "Run Now" capability from the UI.
+- **Scheduled Runs:** DB schema supports scheduling (`hourly`, `daily`, `cron`), though execution relies on background schedulers.
+- **Stage Execution:** Data is extracted in chunks, converted to Parquet, staged via StorageService, and bulk-loaded to the destination.
+- **Circuit Breaking:** The `TaskExecutor` tracks consecutive failures and opens a circuit for 5 minutes after 5 continuous failures.
+
+## 5. Missing / Incomplete Features
+- **Visual Monitoring of DAG Runs:** Currently, users cannot visually see which specific node failed during a run (no node-level live highlighting in the canvas during execution).
+- **Advanced Retry Scenarios:** Task-level retries are not fully exposed in the UI.
+- **Incremental CDC:** Mostly relies on integer-based or simple timestamp chunking; true WAL-based CDC is not deeply integrated into the pipeline UI yet.
+
+
+-----------------------------------------------------
+
+
+# Pipeline UI/UX Analysis
+
+## 1. User Journey
+1. **Discovery:** User navigates to `/pipelines` and sees a list/grid of existing pipelines.
+2. **Creation:** User clicks "New Pipeline", triggering a fresh canvas draft.
+3. **Designing:** User drags nodes representing data tasks (Extract, Transform, Load) to the canvas.
+4. **Configuration:** Clicking a node opens the `NodeInspector` to input JSON configurations (table names, connection IDs, SQL queries).
+5. **Connecting:** User drags edges from one node's output to another's input to define execution order.
+6. **Validation & Save:** User hits "Save" or "Run", triggering pre-flight validations (circular dependencies, connectivity).
+7. **Execution & Feedback:** Standard UI toasts communicate success/failure, though deep execution progress requires checking separate log or run views.
+
+## 2. Layout & Components
+- **Dashboard (`Pipelines.tsx`):**
+  - Header with metrics ("X pipelines configured").
+  - Search bar and Filter pills (`active`, `draft`, `error`).
+  - Toggle between Table List view and Grid Card view.
+  - Dropdown actions per pipeline (View Details, Run Now, Edit, Duplicate, Delete).
+- **Builder (`PipelineBuilder.tsx` & `Canvas.tsx`):**
+  - Top action bar (Back, Name Input, Save, Run, Validation Status Indicator).
+  - Floating left toolbar for dragging new nodes.
+  - Floating zoom controls tracking canvas state.
+  - Right-side `NodeInspector` for detailed property editing.
+
+## 3. Complexity Level
+- **Moderate to High:** The visual DAG approach makes conceptualizing the workflow easy, but the reliance on raw JSON configuration within the `NodeInspector` elevates the technical requirement. Users must know exactly what schema keys the backend expects (e.g., `connection_id`, `table_name`, `chunk_size`).
+
+## 4. Usability Issues
+1. **JSON Configuration Constraint:** The node inspector often requires manual JSON/key-value input rather than a dedicated, typed form. This is prone to typo-related errors.
+2. **Lack of Run Visibility:** When clicking "Run Now", a toast appears, but there is no immediate live-reload execution map showing nodes turning yellow (running) then green (success) or red (failed).
+3. **Schema Discovery:** No integrated schema browser inside the validation/transform nodes to help users select available tables right from the canvas.
+
+
+-----------------------------------------------------
+
+
+# Pipeline Tech Stack
+
+## 1. Frontend
+- **Framework:** React + TypeScript (Vite)
+- **State Management:** React Query (for API caching and mutations), custom hooks (`useCanvasState`) with Zustand or native React Context for local UI state.
+- **DAG Visualization:** React Flow (handles nodes, edges, zooming, panning, and node-connections).
+- **UI Components:** Tailwind CSS, Radix UI (Lucide solid icons, Dialogs, Dropdowns via `shadcn/ui`).
+- **Routing:** React Router DOM.
+
+## 2. Backend API
+- **Framework:** FastAPI (Python 3.10+)
+- **Routing:** API separated via APIRouter handling pipeline CRUD, triggering, and node management.
+- **Data Validation:** Pydantic models (`PipelineCreate`, `PipelineUpdate`, `PipelineRunTrigger`).
+
+## 3. Execution Engine
+- **Core Orchestrator:** Asyncio-based `TaskExecutor` in connection with `PipelineService` and `WorkerService`.
+- **Database Interaction:** `asyncpg` for high-performance PostgreSQL queries.
+- **Data Processing:** Extraction chunking into Parquet format via `pandas` / `pyarrow` (`ParquetUtils`), intermediate local disk usage, then uploaded to `StorageService` (often S3-compatible).
+- **Destinations:** Bulk loading commands directly handled (e.g., `COPY INTO` for Snowflake).
+
+## 4. Database
+- **Primary DB:** PostgreSQL with Supabase handling Auth and specific configurations.
+- **Migrations:** Managed via raw SQL migration files in `supabase/migrations/` (e.g., `pipeline_retry_config.sql`, `dag_orchestration.sql`).
+
+## 5. Development environment
+- Mock mechanisms include inline execution if `USE_MOCK_DB=true` bypassing background workers.
+
+
+-----------------------------------------------------
+
+
+# Pipeline Database Analysis
+
+## 1. Core Tables
+
+### `pipelines`
+Stores the high-level metadata of a pipeline.
+- `id` (UUID, Primary Key)
+- `name` (String)
+- `description` (Text)
+- `status` (Enum/String: active, inactive, draft, error)
+- `environment` (String, default 'dev')
+- `schedule_type` (String: manual, hourly, daily, cron)
+- `schedule_config` (JSONB)
+- `created_by`, `created_at`, `updated_at`
+
+### `pipeline_nodes`
+Stores individual visual nodes for the React Flow canvas.
+- `id` (UUID, PK)
+- `pipeline_id` (FK to pipelines)
+- `node_type` (String: source, extract, transform, validation, load)
+- `label` (String)
+- `config_json` (JSONB: holds connection_ids, table_names, SQL queries)
+- `position_x`, `position_y` (Float, UI rendering)
+- `order_index` (Int)
+
+### `pipeline_edges`
+Stores connections between nodes.
+- `pipeline_id` (FK to pipelines)
+- `source_node_id` (FK to pipeline_nodes)
+- `target_node_id` (FK to pipeline_nodes)
+
+### `pipeline_runs`
+Tracks instances of a pipeline execution.
+- `id` (UUID, PK)
+- `pipeline_id` (FK to pipelines)
+- `status` (String: pending, running, completed, failed)
+- `environment` (String)
+- `start_time`, `finished_at` (Timestamp)
+
+### `pipeline_versions`
+Audit log of DAG changes.
+- `pipeline_id` (FK to pipelines)
+- `version_number` (Int)
+- `dag_json` (JSONB containing nodes and edges snapshot)
+
+### `pipeline_tasks` & `pipeline_dependencies`
+Compiled "executable" layer extracted from the visual nodes/edges.
+- `pipeline_tasks`: `id`, `pipeline_id`, `task_name`, `task_type` (EXTRACT, SQL, VALIDATION, LOAD), `config_json` (JSONB).
+- `pipeline_dependencies`: `pipeline_id`, `parent_task_id`, `child_task_id`.
+
+### `pipeline_logs`
+Granular logging per run.
+- `run_id` (FK to pipeline_runs)
+- `pipeline_id` (FK to pipelines)
+- `stage` (String)
+- `log_level` (String: INFO, ERROR, WARNING)
+- `message` (Text)
+- `metadata` (JSONB)
+- `timestamp` (Timestamp)
+
+## 2. Relationships
+A `pipeline` has many `pipeline_nodes` and `pipeline_edges`. These are versioned into `pipeline_versions`. When executed, a `pipeline` generates a `pipeline_run`, which in turn generates many `pipeline_logs` and interacts with `astra_worker_queue` for distributed job processing.
+
+
+-----------------------------------------------------
+
+
+# Pipeline API Analysis
+
+## 1. Endpoints Overview (`pipeline_router.py`)
+
+### Fetching & Listing
+- `GET /pipelines`: Lists pipelines with pagination (`limit`, `offset`).
+- `GET /pipelines/{pipeline_id}`: Retrieves full pipeline data, including its `nodes` and `edges`.
+- `GET /pipelines/{pipeline_id}/versions`: Lists the historical `pipeline_versions`.
+- `GET /pipelines/export`: Complete dump of all pipelines, nodes, and edges.
+- `GET /pipelines/nodes`: Dumps all nodes across the system.
+
+### Creating, Updating, Deleting
+- `POST /pipelines`: Creates a pipeline. Expects full JSON of `pipeline` metadata, `nodes` array, and `edges` array. Implicitly validates DAG integrity (no circular dependencies).
+- `PUT /pipelines/{pipeline_id}`: Updates name, nodes, or edges. Automatically increments `version_number` and recompiles tasks.
+- `DELETE /pipelines/{pipeline_id}`: Removes pipeline (relies on DB cascading rules for cleanup).
+- `POST /pipelines/{pipeline_id}/duplicate`: Clones the pipeline logic minus IDs.
+
+### Execution & Monitoring
+- `POST /pipelines/{pipeline_id}/run`: Triggers a new execution manually.
+  - *MOCK MODE:* Executes stages inline synchronously (via `asyncio.sleep` blocks).
+  - *PROD MODE:* Enqueues the first stage (`extract`) into the `WorkerService` pool.
+- `GET /pipelines/runs`: Filters and lists `pipeline_runs`.
+- `GET /pipelines/runs/{run_id}`: Returns details of a specific run.
+- `GET /pipelines/runs/{run_id}/tasks`: Lists task-level executions (`task_runs`).
+- `GET /pipelines/{pipeline_id}/status`: Fetches latest run status quickly for UI badges.
+- `GET /pipelines/runs/{run_id}/logs`: Retrieves logs by run_id, stage, and log_level.
+
+### Validation
+- `POST /pipelines/{pipeline_id}/validate`: Performs pre-flight checks:
+  1. DAG integrity (no circular dependencies).
+  2. Connection reachability and validity for both Source and Destination nodes.
+
+## 2. Request/Response Paradigms
+- Mostly relies on JSON REST patterns.
+- Pydantic schemas (`PipelineCreate`, `PipelineUpdate`) validate input strictly.
+- Heavy use of FastAPI `Depends` injecting `PipelineService` and `WorkerService`.
+
+
+-----------------------------------------------------
+
+
+# Pipeline Architecture Analysis
+
+## 1. System Design Layers
+
+### Layer 1: Frontend (React UI)
+- The user interacts with `/pipelines` list and `/pipelines/{id}/edit` React Flow canvas.
+- Components use `react-query` to pull state from API and push mutations (Save/Run).
+
+### Layer 2: API Gateway (FastAPI)
+- Exposes RESTful endpoints in `backend/api/pipeline_router.py`.
+- Authenticates and orchestrates dependency injection for database sessions.
+
+### Layer 3: Business Logic (`PipelineService.py`)
+- Core logic for CRUD operations.
+- Translates Visual Graph (Nodes + Edges) into compiled Executable Graph (`pipeline_tasks` + `pipeline_dependencies`).
+- Performs pre-flight connection checks interacting with `ConnectionService`.
+
+### Layer 4: Worker / Task Queue (`WorkerService.py`)
+- Inserts jobs into `astra_worker_queue`.
+- In a production setup, daemon runners pull from this queue.
+- In Mock mode, tasks execute inline sequentially.
+
+### Layer 5: Execution Engine (`TaskExecutor.py`)
+- Actually performs the work. Given a `task_type` (`EXTRACT`, `LOAD`, `SQL`), it dynamically looks up the target connector (e.g., `PostgresConnector` or `SnowflakeConnector`).
+- Extracts data iteratively in chunks (e.g., 50k rows), translates it to Parquet locally, upskills to `StorageService` staging paths (like S3).
+- Directs `BulkLoadService` to move staged data into target destinations.
+
+### Layer 6: Storage & Database (PostgreSQL)
+- Holds persistent configuration matrices, run logs, and states.
+
+## 2. System Flow: User to Database
+1. **User (UI)** drags the components and configures JSON keys (Source Table X -> Dest Table Y).
+2. **UI** POSTs `/pipelines`.
+3. **API** sends to `PipelineService.create_pipeline`.
+4. **Service** saves to `pipelines`, `pipeline_nodes`, `pipeline_edges`. It then runs `compile_dag` to produce `pipeline_tasks`.
+5. **User** clicks `Run Now`.
+6. **API** triggers run. Enqueues job to `astra_worker_queue`.
+7. **TaskExecutor** pulls job, sees `EXTRACT` task. Pulls from Postgres in chunks, maps to Parquet, pushes to local staging storage.
+8. **TaskExecutor** transitions to `LOAD` task. Triggers Snowflake `COPY INTO` from the staging pool.
+9. **Database** `pipeline_runs` row transitions from `running` to `completed`. UI polls and updates badge.
+
+
+-----------------------------------------------------
+
+
+# Pipeline Execution Engine Analysis
+
+## 1. How Pipelines Run
+Pipelines transform visual nodes into executable tasks:
+1. When a pipeline is saved, `PipelineService.compile_dag()` translates UI nodes (`extract`, `transform`, `load`) into standardized tasks (`EXTRACT`, `SQL`, `LOAD`) in `pipeline_tasks`.
+2. When triggered, the `pipeline_router` pushes a job referencing the pipeline ID to the `WorkerService`.
+3. The `TaskExecutor` processes the task sequentially or via parallelized partitions depending on the implementation.
+
+## 2. Job Execution Logic (`TaskExecutor.py`)
+The executor is switch-statement style routing:
+- **`EXTRACT`:** Connects to source -> Plans partitions via `PartitionPlanner` -> Queries source in parallel chunks (up to 4 concurrent per node) -> converts Pandas DataFrames to Parquet -> Uploads to `StorageService`.
+- **`LOAD`:** Calls `BulkLoadService` to issue high-performance copy commands (e.g., Snowflake `COPY INTO`) natively against the staged S3/Local parquet paths.
+- **`SQL`:** Executes raw queries for transform logic.
+- **`VALIDATION`:** Computes custom data-fidelity checks.
+
+## 3. Circuit Breaker & Failure Handling
+- **Failure Count:** Tracks consecutive failures globally per `task_type` in memory (`TaskExecutor.failure_counts`).
+- **Circuit Open:** If 5 continuous failures occur on a task type, the circuit "trips" and prevents any further execution of that task type for 5 minutes (`300` seconds).
+- *Limitation:* The circuit breaker is in-memory per FastAPI worker node. In a multi-worker production environment, this state is not distributed unless pushed to Redis or Postgres.
+
+## 4. Trigger System
+- **Manual Trigger** is directly initiated by the UI through a REST API call to `/run`.
+- **Scheduled Trigger** handles cron/hourly/daily intervals natively stored in `schedule_config`, but relies on an external/internal chron job parser to enqueue them based on time.
+- **Pipeline Dependencies:** Feature `check_and_trigger_children()` allows pipelines to spawn downstream pipelines upon completion.
+
+## 5. Limitations
+- **Mock vs. Daemon:** In local environments (`USE_MOCK_DB=true`), stages are executed synchronously via fake sleep. True production requires running the distributed worker daemon.
+- **In-Memory Local Staging:** Heavy reliance on local OS disk to build `.parquet` chunk files before pushing to storage. In Kubernetes, this requires generous ephemeral storage attachments.
+
+
+-----------------------------------------------------
+
+
+# Pipeline Error & Failure Analysis
+
+## 1. Common Errors
+
+### UI Issues (Low to Medium)
+- **JSON Configuration Formatting:** Users entering invalid JSON or missing required keys (`connection_id`, `table_name`) in the NodeInspector causes downstream task failures. (Medium - bad UX).
+- **Missing Visual Feedback:** Pipeline run failures do not reflect on the canvas nodes directly. Users only see a "Failed" badge on the pipeline level. (Medium).
+
+### API Failures (Medium to Critical)
+- **Validation Timeouts:** If the pre-flight connection validation (`/validate`) hits a database that is slow to respond, the API call can hang or timeout. (Medium).
+- **Circular Dependency Detection:** Handled well on creation, but if edge mapping logic breaks, the `compile_dag` fails silently during an update. (Critical).
+
+### Execution Failures (Critical)
+- **Parquet/Disk Exhaustion:** In high-volume extract tasks, translating 50k row chunks to Parquet locally before uploading to staging can fill up local ephemeral disk space. (Critical).
+- **Connection Drops:** If a source database connection drops mid-chunk, the `TaskExecutor` fails the entire job. Natively, there's no "resume from chunk" capability; the circuit breaker kicks in after 5 total failures. (Critical).
+- **Type Mismatches:** Loading into Snowflake without strict schema mapping causes `COPY INTO` errors.
+
+## 2. Failure Handling & Recovery
+- Currently relies on a basic **Circuit Breaker** pattern in the `TaskExecutor`. Open for 5 minutes after 5 continuous errors.
+- **Lacking State Recovery:** There is no UI button to "Retry from Failed Node". Users must trigger a full pipeline run again.
+
+
+-----------------------------------------------------
+
+
+# Pipeline Gap Analysis (vs. Industry Standards)
+
+## Current System vs. Airflow / Airbyte
+
+### 1. Extractor Abstraction (Airbyte tier)
+- **AstraFlow Current:** Hand-rolled connectors (`PostgresConnector`, `SnowflakeConnector`) pulling via basic Python libraries (`asyncpg`, `snowflake-connector-python`).
+- **Gap:** Missing Singer/Airbyte protocol standard. Hard to scale to 100+ integrations. No automatic schema discovery or rigorous CDC (Change Data Capture) via WAL/binlog.
+
+### 2. DAG Orchestration Engine (Airflow tier)
+- **AstraFlow Current:** A custom `TaskExecutor` loop combined with `WorkerService` queueing. 
+- **Gap:** No mature state machine (like Airflow's metadata DB tracking every exact atomic task try). No visual live-monitoring of job progressions (the "Grid/Graph View" during a run in Airflow).
+
+### 3. State & Retry Logic
+- **AstraFlow Current:** Hardcoded 5-fail circuit breaker. Either entire run succeeds or fails. No resuming.
+- **Gap:** No exponential backoff. No "Clear and Restart" task-level controls via UI.
+
+### 4. Advanced Scheduling
+- **AstraFlow Current:** The DB schema supports `schedule_type: cron`, but the frontend UI to build complex cron expressions or interval logic is minimal.
+- **Gap:** Missing timezone-aware scheduling, data-interval concepts (running jobs "for" yesterday's data), and SLA miss alerts.
+
+### 5. Code vs. UI Conflict
+- **AstraFlow Current:** strictly visual (UI-based configuration stored in JSON). 
+- **Gap:** Airflow/Prefect thrive because DAGs are Python code (version controlled). AstraFlow's `pipeline_versions` table tries to act as version control, but it lacks git semantics and true CI/CD "Pipeline as Code".
+
+## Summary for Redesign
+AstraFlow's Pipeline Service is currently a strong "Data Loader" visual wrapper. To scale, it needs:
+1. True task-level isolation and state resumption.
+2. A websocket or polling UI layer that visually colors the DAG nodes during remote execution.
+3. Move toward an Airbyte-compatible source connector protocol for robustness.
+
+
+-----------------------------------------------------
+
+

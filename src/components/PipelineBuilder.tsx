@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ArrowLeft, Play, Save, Loader2, CheckCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCreatePipeline, useUpdatePipeline } from "@/hooks/use-pipelines";
-import { useTriggerRun } from "@/hooks/use-executions";
+import { useTriggerRun, useRunTasks } from "@/hooks/use-executions";
 import { useValidatePipeline } from "@/hooks/use-connections";
 import { useAuth } from "@/components/AuthProvider";
 import { toast } from "@/hooks/use-toast";
@@ -32,6 +32,9 @@ const PipelineBuilder = ({ onBack, pipelineId, initialName, initialNodes, initia
   const validatePipeline = useValidatePipeline();
   const saving = createPipeline.isPending || updatePipeline.isPending;
   const [validationStatus, setValidationStatus] = useState<"idle" | "valid" | "invalid">("idle");
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
+
+  const { data: runTasks } = useRunTasks(activeRunId || undefined);
 
   const {
     nodes, edges, selectedNode, zoom, pan,
@@ -41,6 +44,22 @@ const PipelineBuilder = ({ onBack, pipelineId, initialName, initialNodes, initia
   } = useCanvasState(initialNodes, initialEdges);
 
   const selectedNodeData = nodes.find((n) => n.id === selectedNode);
+
+  const nodeStatuses = useMemo(() => {
+    if (!runTasks) return {};
+    const statuses: Record<string, string> = {};
+    runTasks.forEach((t) => {
+      if (t.node_id) statuses[t.node_id] = t.status;
+    });
+    return statuses;
+  }, [runTasks]);
+
+  const nodesWithStatus = useMemo(() => {
+    return nodes.map(n => ({
+        ...n,
+        status: nodeStatuses[n.id] as any
+    }));
+  }, [nodes, nodeStatuses]);
 
   const handleSave = async () => {
     try {
@@ -143,7 +162,14 @@ const PipelineBuilder = ({ onBack, pipelineId, initialName, initialNodes, initia
               triggerRun.mutate(
                 { pipelineId, userId: user?.id },
                 {
-                  onSuccess: () => toast({ title: "Pipeline execution started", description: "Watch logs for real-time progress." }),
+                  onSuccess: (data: any) => {
+                    toast({ title: "Pipeline execution started", description: "Watch logs for real-time progress." });
+                    if (data && data.id) {
+                      setActiveRunId(data.id);
+                    } else if (data && data.run_id) {
+                      setActiveRunId(data.run_id);
+                    }
+                  },
                   onError: (e) => toast({ title: "Error", description: e.message, variant: "destructive" }),
                 }
               );
@@ -163,7 +189,7 @@ const PipelineBuilder = ({ onBack, pipelineId, initialName, initialNodes, initia
       {/* Canvas + Inspector */}
       <div className="flex flex-1 overflow-hidden">
         <Canvas
-          nodes={nodes}
+          nodes={nodesWithStatus}
           edges={edges}
           selectedNode={selectedNode}
           zoom={zoom}

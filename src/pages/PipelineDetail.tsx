@@ -109,7 +109,7 @@ const PipelineDetail = () => {
   }
 
   const statusMap: Record<string, "success" | "running" | "failed" | "pending"> = {
-    active: "success", draft: "pending", paused: "pending", error: "failed",
+    active: "success", draft: "pending", paused: "pending", error: "failed", completed: "success",
   };
 
   const successCount = runs.filter((r) => r.status === "success").length;
@@ -517,7 +517,7 @@ function RunRow({ run, expanded, onToggle, expandedTask, setExpandedTask }: {
   setExpandedTask: (k: string | null) => void;
 }) {
   const statusMap: Record<string, "success" | "running" | "failed" | "pending"> = {
-    success: "success", running: "running", failed: "failed", pending: "pending", cancelled: "pending",
+    success: "success", running: "running", failed: "failed", pending: "pending", cancelled: "pending", completed: "success"
   };
 
   return (
